@@ -1,0 +1,201 @@
+# Rootly Platform - Unified Docker Compose
+# This docker-compose file orchestrates all services in the agricultural monitoring platform
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # INFRASTRUCTURE SERVICES
+  # ============================================================================
+
+  # InfluxDB - Time Series Database (Shared by both backends)
+  influxdb:
+    image: influxdb:2.7.5
+    container_name: rootly-influxdb
+    restart: unless-stopped
+    ports:
+      - "${INFLUXDB_PORT:-8086}:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - ./influxdb/init:/docker-entrypoint-initdb.d
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_ADMIN_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD:-admin123}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-rootly}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-agricultural_data}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-super-secret-influx-token}
+    networks:
+      - rootly-network
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # MinIO - Object Storage (Used by Data Management Backend)
+  minio:
+    image: minio/minio:latest
+    container_name: rootly-minio
+    restart: unless-stopped
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    networks:
+      - rootly-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # PostgreSQL - Relational Database (Used by Authentication Backend)
+  postgres:
+    image: postgres:15-alpine
+    container_name: rootly-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-auth_db}
+      - POSTGRES_USER=${POSTGRES_USER:-auth_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-auth_password123}
+    networks:
+      - rootly-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-auth_user} -d ${POSTGRES_DB:-auth_db}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # MinIO Auth - Object Storage for Profile Photos (Used by Authentication Backend)
+  minio-auth:
+    image: minio/minio:latest
+    container_name: rootly-minio-auth
+    restart: unless-stopped
+    ports:
+      - "${MINIO_AUTH_PORT:-9002}:9000"
+      - "${MINIO_AUTH_CONSOLE_PORT:-9003}:9001"
+    volumes:
+      - minio_auth_data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_AUTH_ROOT_USER:-minioauth}
+      - MINIO_ROOT_PASSWORD=${MINIO_AUTH_ROOT_PASSWORD:-minioauth123}
+    command: server /data --console-address ":9001"
+    networks:
+      - rootly-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ============================================================================
+  # APPLICATION SERVICES
+  # ============================================================================
+
+  # Data Management Backend (Go) - Handles data ingestion and storage
+  data-management-backend:
+    build:
+      context: ../rootly-data-management-backend
+      dockerfile: Dockerfile
+    container_name: rootly-data-management-backend
+    restart: unless-stopped
+    ports:
+      - "8002:8080"
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - rootly-network
+    env_file:
+      - ../rootly-data-management-backend/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Analytics Backend (Python) - Provides analytics and insights
+  analytics-backend:
+    build:
+      context: ../rootly-analytics-backend
+      dockerfile: Dockerfile
+    container_name: rootly-analytics-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    networks:
+      - rootly-network
+    env_file:
+      - ../rootly-analytics-backend/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Authentication Backend (Python) - Handles user authentication and management
+  authentication-backend:
+    build:
+      context: ../rootly-authentication-and-roles-backend
+      dockerfile: Dockerfile
+    container_name: rootly-authentication-backend
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-auth:
+        condition: service_healthy
+    networks:
+      - rootly-network
+    env_file:
+      - ../rootly-authentication-and-roles-backend/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+
+volumes:
+  influxdb_data:
+    driver: local
+  minio_data:
+    driver: local
+  postgres_data:
+    driver: local
+  minio_auth_data:
+    driver: local
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+
+networks:
+  rootly-network:
+    driver: bridge
+    name: rootly-network

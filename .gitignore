@@ -1,0 +1,34 @@
+# Environment files (contains sensitive data)
+.env
+.env.local
+.env.production
+
+# Docker volumes (data persistence)
+# Note: These are handled by docker-compose.yml
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*.bak
+*.backup
