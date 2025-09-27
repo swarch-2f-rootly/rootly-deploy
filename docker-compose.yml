@@ -4,10 +4,6 @@
 version: '3.8'
 
 services:
-  # ============================================================================
-  # INFRASTRUCTURE SERVICES
-  # ============================================================================
-
   # InfluxDB - Time Series Database (Shared by both backends)
   influxdb:
     image: influxdb:2.7.5
@@ -19,12 +15,12 @@ services:
       - influxdb_data:/var/lib/influxdb2
       - ./influxdb/init:/docker-entrypoint-initdb.d
     environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_ADMIN_USER:-admin}
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD:-admin123}
-      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-rootly}
-      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-agricultural_data}
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-super-secret-influx-token}
+      - DOCKER_INFLUXDB_INIT_MODE=${DOCKER_INFLUXDB_INIT_MODE:-setup}
+      - DOCKER_INFLUXDB_INIT_USERNAME=${DOCKER_INFLUXDB_INIT_USERNAME:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${DOCKER_INFLUXDB_INIT_PASSWORD:-admin123}
+      - DOCKER_INFLUXDB_INIT_ORG=${DOCKER_INFLUXDB_INIT_ORG:-rootly}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${DOCKER_INFLUXDB_INIT_BUCKET:-agricultural_data}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN:-super-secret-influx-token}
     networks:
       - rootly-network
     healthcheck:
@@ -45,9 +41,9 @@ services:
     volumes:
       - minio_data:/data
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin123}
-    command: server /data --console-address ":9001"
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-admin123}
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT:-9001}"
     networks:
       - rootly-network
     healthcheck:
@@ -68,7 +64,7 @@ services:
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-auth_db}
       - POSTGRES_USER=${POSTGRES_USER:-auth_user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-auth_password123}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
     networks:
       - rootly-network
     healthcheck:
@@ -89,9 +85,9 @@ services:
     volumes:
       - minio_auth_data:/data
     environment:
-      - MINIO_ROOT_USER=${MINIO_AUTH_ROOT_USER:-minioauth}
-      - MINIO_ROOT_PASSWORD=${MINIO_AUTH_ROOT_PASSWORD:-minioauth123}
-    command: server /data --console-address ":9001"
+      - MINIO_ROOT_USER=${MINIO_AUTH_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_AUTH_ROOT_PASSWORD:-admin123}
+    command: server /data --console-address ":${MINIO_AUTH_CONSOLE_PORT:-9003}"
     networks:
       - rootly-network
     healthcheck:
@@ -112,7 +108,7 @@ services:
     container_name: rootly-data-management-backend
     restart: unless-stopped
     ports:
-      - "8002:8080"
+      - "${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}:${SERVERS_INTERNAL_PORT:-8000}"
     depends_on:
       influxdb:
         condition: service_healthy
@@ -121,9 +117,14 @@ services:
     networks:
       - rootly-network
     env_file:
-      - ../rootly-data-management-backend/.env
+      - .env
+    environment:
+      - HOST_IP=${HOST_IP:-host.docker.internal}
+      - EXTERNAL_PORT=${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${SERVERS_INTERNAL_PORT:-8000}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -137,14 +138,14 @@ services:
     container_name: rootly-analytics-backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${ANALYTICS_EXTERNAL_PORT:-8000}:${SERVERS_INTERNAL_PORT:-8000}"
     depends_on:
       influxdb:
         condition: service_healthy
     networks:
       - rootly-network
     env_file:
-      - ../rootly-analytics-backend/.env
+      - .env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -160,7 +161,7 @@ services:
     container_name: rootly-authentication-backend
     restart: unless-stopped
     ports:
-      - "8001:8000"
+      - "${AUTH_EXTERNAL_PORT:-8001}:${SERVERS_INTERNAL_PORT:-8000}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -169,9 +170,9 @@ services:
     networks:
       - rootly-network
     env_file:
-      - ../rootly-authentication-and-roles-backend/.env
+      - .env
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${SERVERS_INTERNAL_PORT:-8000}/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -119,18 +119,20 @@ Once started, the services will be available at:
 
 - **InfluxDB**: http://localhost:8086
   - Admin UI: Access via web browser
+  - Credentials: admin / admin123
 
 - **MinIO (Data Lake)**: http://localhost:9000
   - Console: http://localhost:9001
-  - Credentials: minioadmin / minioadmin123
+  - Credentials: admin / admin123
 
 - **MinIO Auth (Profile Photos)**: http://localhost:9002
   - Console: http://localhost:9003
-  - Credentials: minioauth / minioauth123
+  - Credentials: admin / admin123
 
 - **PostgreSQL**: localhost:5432
   - Database: auth_db
   - User: auth_user
+  - Password: admin123
 
 ## 📊 Service Dependencies
 

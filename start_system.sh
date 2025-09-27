@@ -145,34 +145,6 @@ start_applications() {
     sleep 30
 }
 
-# Seed data management backend with sample data
-seed_data_management() {
-    print_status "Seeding data management backend with sample data..."
-
-    # Wait a bit more for the data management backend to be fully ready
-    sleep 10
-
-    # Check if data management backend is healthy
-    if ! docker-compose exec -T data-management-backend curl -f http://localhost:8080/health &>/dev/null; then
-        print_error "Data management backend is not healthy, skipping seeding"
-        return 1
-    fi
-
-    # Run the seeding script
-    if docker run --rm --network rootly-network \
-        -v "$(pwd)/../rootly-data-management-backend:/app" \
-        -w /app \
-        golang:1.21-alpine \
-        sh -c "
-            apk add --no-cache git ca-certificates && \
-            go run scripts/seed_data.go
-        "; then
-        print_success "Data management backend seeded with sample agricultural data"
-    else
-        print_warning "Data management backend seeding failed (might already be seeded)"
-    fi
-}
-
 # Display service information
 display_info() {
     echo ""
@@ -207,7 +179,6 @@ main() {
     start_infrastructure
     initialize_databases
     start_applications
-    seed_data_management
     display_info
 }
 
