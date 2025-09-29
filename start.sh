@@ -34,6 +34,15 @@ detect_lan_ip() {
     return 1
 }
 
+copy_env_if_not_exists() {
+    if [ ! -f .env ]; then
+        cp .env.example .env
+        echo "Copied .env.example to .env"
+    fi
+}
+
+copy_env_if_not_exists
+
 LAN_IP=$(detect_lan_ip)
 
 if [[ -n "$LAN_IP" ]]; then
