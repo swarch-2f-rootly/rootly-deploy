@@ -41,7 +41,15 @@ copy_env_if_not_exists() {
     fi
 }
 
+copy_env_if_not_exists_frontend() {
+    if [ ! -f ../rootly-frontend/.env ]; then
+        cp ../rootly-frontend/.env.example ../rootly-frontend/.env
+        echo "Copied .env.example to .env"
+    fi
+}
+
 copy_env_if_not_exists
+copy_env_if_not_exists_frontend
 
 LAN_IP=$(detect_lan_ip)
 
@@ -76,7 +84,7 @@ if docker compose ps --format json 2>/dev/null | grep -q "running"; then
 fi
 
 echo "Starting services..."
-docker compose up -d
+docker compose up -d --build
 
 echo ""
 echo "Service status:"
