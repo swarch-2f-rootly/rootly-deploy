@@ -2,7 +2,7 @@
 
 This directory contains the unified deployment configuration for the entire Rootly agricultural monitoring platform.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 The platform consists of six main services:
 
@@ -17,7 +17,7 @@ The platform consists of six main services:
 6. **Analytics Backend** (Python) - Provides analytics and insights
 7. **Authentication Backend** (Python) - Handles user authentication and management
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 
@@ -34,10 +34,10 @@ cd rootly-deployment
 ```
 
 Este script hace todo automáticamente:
-- ✅ Inicia servicios de infraestructura (PostgreSQL, InfluxDB, MinIO)
-- ✅ Inicializa bases de datos con esquemas y datos de prueba
-- ✅ Inicia servicios de aplicación
-- ✅ Muestra información de acceso
+- Inicia servicios de infraestructura (PostgreSQL, InfluxDB, MinIO)
+- Inicializa bases de datos con esquemas y datos de prueba
+- Inicia servicios de aplicación
+- Muestra información de acceso
 
 #### Opción B: Setup Paso a Paso
 
@@ -102,7 +102,7 @@ If you prefer to configure each service manually:
    docker-compose ps
    ```
 
-## 🔍 Service Endpoints
+## Service Endpoints
 
 Once started, the services will be available at:
 
@@ -134,7 +134,7 @@ Once started, the services will be available at:
   - User: auth_user
   - Password: admin123
 
-## 📊 Service Dependencies
+## Service Dependencies
 
 The services start in the correct order with health checks:
 
@@ -144,7 +144,7 @@ InfluxDB & MinIO (Infrastructure)
     ↳ Analytics Backend (depends on InfluxDB only)
 ```
 
-## 🛠️ Development Commands
+## Development Commands
 
 ### View logs
 ```bash
@@ -175,7 +175,7 @@ docker-compose down
 docker-compose down -v
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -201,7 +201,7 @@ Persistent data is stored in named volumes:
 - `influxdb_data` - InfluxDB database files
 - `minio_data` - MinIO object storage files
 
-## 🧪 Testing
+## Testing
 
 For integration testing, use the test-specific configuration in the data-management-backend:
 
@@ -210,7 +210,7 @@ cd ../rootly-data-management-backend
 docker-compose -f tests/integration/docker-compose.test.yml up -d
 ```
 
-## 📈 Monitoring
+## Monitoring
 
 ### Health Checks
 
@@ -226,14 +226,14 @@ Application logs are available via:
 docker-compose logs -f [service-name]
 ```
 
-## 🔒 Security Notes
+## Security Notes
 
 - Change default passwords in production
 - Use strong tokens for InfluxDB
 - Consider using secrets management for sensitive data
 - MinIO console should be protected in production
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -255,7 +255,7 @@ docker network ls
 docker network inspect rootly-network
 ```
 
-## 📚 Additional Resources
+## Additional Resources
 
 - [InfluxDB Documentation](https://docs.influxdata.com/influxdb/)
 - [MinIO Documentation](https://min.io/docs/minio/linux/index.html)
