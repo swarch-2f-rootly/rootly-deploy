@@ -203,6 +203,37 @@ services:
       retries: 3
       start_period: 60s
 
+  # API Gateway (Go) - GraphQL + REST Proxy
+  api-gateway:
+    build:
+      context: ../rootly-apigateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "${API_GATEWAY_EXTERNAL_PORT:-8080}:8080"
+    depends_on:
+      be-authentication-and-roles:
+        condition: service_started
+      be-user-plant-management:
+        condition: service_started
+      be-data-management:
+        condition: service_started
+      be-analytics:
+        condition: service_started
+    networks:
+      - rootly-network
+    env_file:
+      - .env
+    environment:
+      - PORT=8080
+      - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-true}
+      - GRAPHQL_PLAYGROUND_ENABLED=${GRAPHQL_PLAYGROUND_ENABLED:-true}
+      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
+      - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
+      - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8000
+      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
+
   # Authentication Backend (Python) - Handles user authentication and management
   be-authentication-and-roles:
     build:
@@ -223,6 +254,12 @@ services:
       - .env
     environment:
       - MINIO_ENDPOINT=stg-authentication-and-roles:9000
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@db-authentication-and-roles:5432/${POSTGRES_DB:-authentication_and_roles_db}
+      - DB_HOST=db-authentication-and-roles
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-admin}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-admin123}
+      - DB_NAME=${POSTGRES_DB:-authentication_and_roles_db}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${SERVERS_INTERNAL_PORT:-8000}/health"]
       interval: 30s
