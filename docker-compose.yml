@@ -10,9 +10,9 @@
 # - Frontend (React)
 services:
   # InfluxDB - Time Series Database (Shared by both backends)
-  influxdb:
+  db-data-management:
     image: influxdb:2.7.5
-    container_name: rootly-influxdb
+    container_name: db-data-management
     restart: unless-stopped
     ports:
       - "${INFLUXDB_PORT:-8086}:8086"
@@ -36,9 +36,9 @@ services:
       start_period: 30s
 
   # MinIO - Object Storage (Used by Data Management Backend)
-  minio:
+  stg-data-management:
     image: minio/minio:latest
-    container_name: rootly-minio
+    container_name: stg-data-management
     restart: unless-stopped
     ports:
       - "${MINIO_PORT:-9000}:9000"
@@ -58,17 +58,17 @@ services:
       retries: 3
 
   # PostgreSQL - Relational Database (Used by Authentication Backend)
-  postgres:
+  db-authentication-and-roles:
     image: postgres:15-alpine
-    container_name: rootly-postgres
+    container_name: db-authentication-and-roles
     restart: unless-stopped
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=${POSTGRES_DB:-auth_db}
-      - POSTGRES_USER=${POSTGRES_USER:-auth_user}
+      - POSTGRES_DB=${POSTGRES_DB:-authentication_and_roles_db}
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
     networks:
       - rootly-network
@@ -80,32 +80,31 @@ services:
       start_period: 30s
 
   # PostgreSQL - Relational Database (Used by User Plant Management Backend)
-  postgres-user-plant:
+  db-user-plant-management:
     image: postgres:15-alpine
-    container_name: rootly-postgres-user-plant
+    container_name: db-user-plant-management
     restart: unless-stopped
     ports:
       - "${POSTGRES_USER_PLANT_PORT:-5433}:5432"
     volumes:
       - postgres_user_plant_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=${POSTGRES_USER_PLANT_DB:-rootly}
-      - POSTGRES_USER=${POSTGRES_USER_PLANT_USER:-postgres}
+      - POSTGRES_DB=${POSTGRES_USER_PLANT_DB:-user_plant_management_db}
+      - POSTGRES_USER=${POSTGRES_USER_PLANT_USER:-admin}
       - POSTGRES_PASSWORD=${POSTGRES_USER_PLANT_PASSWORD:-admin123}
-      - POSTGRES_HOST_AUTH_METHOD=trust
     networks:
       - rootly-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_PLANT_USER:-postgres} -d ${POSTGRES_USER_PLANT_DB:-rootly}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_PLANT_USER:-admin} -d ${POSTGRES_USER_PLANT_DB:-user_plant_management_db}"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 30s
 
   # MinIO Auth - Object Storage for Profile Photos (Used by Authentication Backend)
-  minio-auth:
+  stg-authentication-and-roles:
     image: minio/minio:latest
-    container_name: rootly-minio-auth
+    container_name: stg-authentication-and-roles
     restart: unless-stopped
     ports:
       - "${MINIO_AUTH_PORT:-9002}:9000"
@@ -125,9 +124,9 @@ services:
       retries: 3
 
   # MinIO User Plant - Object Storage for User Plant Management Backend
-  minio-user-plant:
+  stg-user-plant-management:
     image: minio/minio:latest
-    container_name: rootly-minio-user-plant
+    container_name: stg-user-plant-management
     restart: unless-stopped
     ports:
       - "${MINIO_USER_PLANT_PORT:-9004}:9000"
@@ -151,18 +150,18 @@ services:
   # ============================================================================
 
   # Data Management Backend (Go) - Handles data ingestion and storage
-  data-management-backend:
+  be-data-management:
     build:
       context: ../rootly-data-management-backend
       dockerfile: Dockerfile
-    container_name: rootly-data-management-backend
+    container_name: be-data-management
     restart: unless-stopped
     ports:
       - "${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}:${SERVERS_INTERNAL_PORT:-8000}"
     depends_on:
-      influxdb:
+      db-data-management:
         condition: service_healthy
-      minio:
+      stg-data-management:
         condition: service_healthy
     networks:
       - rootly-network
@@ -181,16 +180,16 @@ services:
       start_period: 40s
 
   # Analytics Backend (Python) - Provides analytics and insights
-  analytics-backend:
+  be-analytics:
     build:
       context: ../rootly-analytics-backend
       dockerfile: Dockerfile
-    container_name: rootly-analytics-backend
+    container_name: be-analytics
     restart: unless-stopped
     ports:
       - "${ANALYTICS_EXTERNAL_PORT:-8000}:${SERVERS_INTERNAL_PORT:-8000}"
     depends_on:
-      influxdb:
+      db-data-management:
         condition: service_healthy
     networks:
       - rootly-network
@@ -204,25 +203,25 @@ services:
       start_period: 60s
 
   # Authentication Backend (Python) - Handles user authentication and management
-  authentication-backend:
+  be-authentication-and-roles:
     build:
       context: ../rootly-authentication-and-roles-backend
       dockerfile: Dockerfile
-    container_name: rootly-authentication-backend
+    container_name: be-authentication-and-roles
     restart: unless-stopped
     ports:
       - "${AUTH_EXTERNAL_PORT:-8001}:${SERVERS_INTERNAL_PORT:-8000}"
     depends_on:
-      postgres:
+      db-authentication-and-roles:
         condition: service_healthy
-      minio-auth:
+      stg-authentication-and-roles:
         condition: service_healthy
     networks:
       - rootly-network
     env_file:
       - .env
     environment:
-      - MINIO_ENDPOINT=minio-auth:9000
+      - MINIO_ENDPOINT=stg-authentication-and-roles:9000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${SERVERS_INTERNAL_PORT:-8000}/health"]
       interval: 30s
@@ -231,26 +230,26 @@ services:
       start_period: 60s
 
   # User Plant Management Backend (Python) - Handles user plant management
-  user-plant-management-backend:
+  be-user-plant-management:
     build:
       context: ../rootly-user-plant-management-backend
       dockerfile: Dockerfile
-    container_name: rootly-user-plant-management-backend
+    container_name: be-user-plant-management
     restart: unless-stopped
     ports:
       - "${USER_PLANT_MANAGEMENT_EXTERNAL_PORT:-8003}:8000"
     depends_on:
-      postgres-user-plant:
+      db-user-plant-management:
         condition: service_healthy
-      minio-user-plant:
+      stg-user-plant-management:
         condition: service_healthy
     networks:
       - rootly-network
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER_PLANT_USER:-postgres}:${POSTGRES_USER_PLANT_PASSWORD:-admin123}@postgres-user-plant:5432/${POSTGRES_USER_PLANT_DB:-rootly}
-      - MINIO_ENDPOINT=minio-user-plant:9000
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER_PLANT_USER:-admin}:${POSTGRES_USER_PLANT_PASSWORD:-admin123}@db-user-plant-management:5432/${POSTGRES_USER_PLANT_DB:-user_plant_management_db}
+      - MINIO_ENDPOINT=stg-user-plant-management:9000
       - MINIO_ACCESS_KEY=${MINIO_USER_PLANT_ROOT_USER:-admin}
       - MINIO_SECRET_KEY=${MINIO_USER_PLANT_ROOT_PASSWORD:-admin123}
     healthcheck:
@@ -265,7 +264,7 @@ services:
     build:
       context: ../rootly-frontend
       dockerfile: Dockerfile
-    container_name: rootly-frontend
+    container_name: frontend
     restart: unless-stopped
     ports:
       - "${FRONTEND_EXTERNAL_PORT:-3000}:3000"
@@ -280,6 +279,37 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # API Gateway (Go)
+  api-gateway:
+    build:
+      context: ../rootly-apigateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - be-analytics
+      - be-authentication-and-roles
+      - be-data-management
+      - be-user-plant-management
+    networks:
+      - rootly-network
+    env_file:
+      - .env
+    environment:
+      - CONFIG_FILE=/etc/rootly/config.yaml
+      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
+      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
+      - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8002
+      - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 # ============================================================================
 # VOLUMES
