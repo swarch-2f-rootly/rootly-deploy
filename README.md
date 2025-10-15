@@ -21,7 +21,10 @@ The platform consists of eleven main services:
 8. **Analytics Backend** (Python) - Provides analytics and insights
 9. **Authentication Backend** (Python) - Handles user authentication and management
 10. **User Plant Management Backend** (Python) - Handles user plant management
-11. **Frontend** (React) - User interface for the agricultural monitoring platform
+11. **API Gateway** (Go) - Routes and orchestrates requests across backend services
+12. **Frontend** (React) - User interface for the agricultural monitoring platform
+
+> **Note**: Mock services for testing are available in the `rootly-apigateway` repository but are **NOT** included in this production deployment. For testing the API Gateway with mock services, use `docker-compose.test.yml` in the API Gateway repository.
 
 ## Quick Start
 
@@ -76,7 +79,7 @@ This script automatically:
 4. **Start all services**
 
     ```bash
-    docker-compose up -d --build
+  docker-compose up -d --build
     ```
 
 5. **Check service health**
@@ -149,6 +152,16 @@ Once started, the services will be available at:
   - Health Check: <http://localhost:8003/health>
 
 - **Frontend**: <http://localhost:3000>
+
+- **API Gateway**: <http://localhost:8080>
+  - Health: <http://localhost:8080/health>
+  - Proxy example: <http://localhost:8080/api/v1/health>
+
+- **Mock Users Service**: <http://localhost:8101>
+  - Health: <http://localhost:8101/health>
+
+- **Mock Payments Service**: <http://localhost:8102>
+  - Health: <http://localhost:8102/health>
 
 - **InfluxDB**: <http://localhost:8086>
   - Admin UI: Access via web browser
