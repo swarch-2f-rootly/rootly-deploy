@@ -1,18 +1,59 @@
 # Rootly Platform - Unified Docker Compose
-# This docker-compose file orchestrates all services in the agricultural monitoring platform:
-# - InfluxDB (time series database)
-# - MinIO (object storage)
-# - PostgreSQL (relational database)
-# - Analytics Backend (Python)
-# - Authentication Backend (Python)
-# - Data Management Backend (Go)
-# - User Plant Management Backend (Python)
-# - Frontend (React)
 services:
+  queue-data-ingestion:
+    image: confluentinc/cp-kafka:latest
+    container_name: queue-data-ingestion
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    environment:
+      - KAFKA_BROKER_ID=${KAFKA_BROKER_ID:-1}
+      - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT:-zookeeper-data-ingestion:2181}
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:-PLAINTEXT:PLAINTEXT}
+      - KAFKA_ADVERTISED_LISTENERS=${KAFKA_ADVERTISED_LISTENERS:-PLAINTEXT://queue-data-ingestion:9092}
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:-1}
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=${KAFKA_TRANSACTION_STATE_LOG_MIN_ISR:-1}
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=${KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR:-1}
+    depends_on:
+      - zookeeper-data-ingestion
+    networks:
+      - rootly-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "queue-data-ingestion:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  queue-ui-data-ingestion:
+    image: provectuslabs/kafka-ui:latest
+    container_name: queue-ui-data-ingestion
+    ports:
+      - "${QUEUE_UI_PORT:-8081}:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=${QUEUE_UI_CLUSTER_NAME:-local}
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${QUEUE_UI_BOOTSTRAP_SERVERS:-kafka:9092}
+    depends_on:
+      - queue-data-ingestion
+    networks:
+      - rootly-network
+    restart: unless-stopped
+
+  zookeeper-data-ingestion:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper-data-ingestion
+    ports:
+      - "${ZOOKEEPER_PORT:-2181}:2181"
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=${ZOOKEEPER_CLIENT_PORT:-2181}
+      - ZOOKEEPER_TICK_TIME=${ZOOKEEPER_TICK_TIME:-2000}
+    networks:
+      - rootly-network
+    restart: unless-stopped
   # InfluxDB - Time Series Database (Shared by both backends)
-  db-data-management:
+  db-data-processing:
     image: influxdb:2.7.5
-    container_name: db-data-management
+    container_name: db-data-processing
     restart: unless-stopped
     ports:
       - "${INFLUXDB_PORT:-8086}:8086"
@@ -35,10 +76,10 @@ services:
       retries: 5
       start_period: 30s
 
-  # MinIO - Object Storage (Used by Data Management Backend)
-  stg-data-management:
+  # MinIO - Object Storage (Used by Data Processing Backend)
+  stg-data-processing:
     image: minio/minio:latest
-    container_name: stg-data-management
+    container_name: stg-data-processing
     restart: unless-stopped
     ports:
       - "${MINIO_PORT:-9000}:9000"
@@ -149,37 +190,46 @@ services:
   # ============================================================================
   # APPLICATION SERVICES
   # ============================================================================
-
-  # Data Management Backend (Go) - Handles data ingestion and storage
-  be-data-management:
+  be-data-ingestion:
     build:
-      context: ../rootly-data-management-backend
+      context: ../rootly-data-ingestion
       dockerfile: Dockerfile
-    container_name: be-data-management
-    restart: unless-stopped
+    container_name: be-data-ingestion
     ports:
-      - "${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}:${SERVERS_INTERNAL_PORT:-8000}"
+      - "8005:8000"
+    env_file:
+      - .env
     depends_on:
-      db-data-management:
+      - queue-data-ingestion
+    networks:
+      - rootly-network
+    restart: unless-stopped
+  # Data Ingestion Backend (Go) - Handles data ingestion and storage
+  be-data-processing:
+    build:
+      context: ../rootly-data-processing
+      dockerfile: Dockerfile
+    container_name: be-data-processing
+    ports:
+      - "8002:8000"
+    env_file:
+      - .env
+    depends_on:
+      queue-data-ingestion:
+        condition: service_started
+      db-data-processing:
         condition: service_healthy
-      stg-data-management:
+      stg-data-processing:
         condition: service_healthy
     networks:
       - rootly-network
-    env_file:
-      - .env
-    environment:
-      - HOST_IP=${HOST_IP:-}
-      - EXTERNAL_PORT=${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
   # Analytics Backend (Python) - Provides analytics and insights
   be-analytics:
     build:
@@ -190,7 +240,9 @@ services:
     ports:
       - "${ANALYTICS_EXTERNAL_PORT:-8000}:${SERVERS_INTERNAL_PORT:-8000}"
     depends_on:
-      db-data-management:
+      db-data-processing:
+        condition: service_healthy
+      stg-data-processing:
         condition: service_healthy
     networks:
       - rootly-network
@@ -217,7 +269,7 @@ services:
         condition: service_started
       be-user-plant-management:
         condition: service_started
-      be-data-management:
+      be-data-processing:
         condition: service_started
       be-analytics:
         condition: service_started
