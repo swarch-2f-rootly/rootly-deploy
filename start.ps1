@@ -30,10 +30,12 @@ docker compose ps
 
 Write-Host ""
 Write-Host "Health check URLs:" -ForegroundColor Cyan
-Write-Host "  Frontend: http://localhost:3000" -ForegroundColor White
+Write-Host "  Frontend SSR: http://localhost:3001" -ForegroundColor White
+Write-Host "  API Gateway: http://localhost:8080" -ForegroundColor White
 Write-Host "  Analytics: http://localhost:8000" -ForegroundColor White
 Write-Host "  Authentication: http://localhost:8001" -ForegroundColor White
 Write-Host "  Data Management: http://localhost:8002" -ForegroundColor White
-Write-Host "  Plant Management: http://localhost:8004" -ForegroundColor White
+Write-Host "  Plant Management: http://localhost:8003" -ForegroundColor White
 Write-Host "  InfluxDB: http://localhost:8086" -ForegroundColor White
 Write-Host "  MinIO: http://localhost:9001" -ForegroundColor White
+Write-Host "  GraphQL Playground: http://localhost:8080/graphql" -ForegroundColor White

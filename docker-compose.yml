@@ -133,11 +133,10 @@ services:
       - POSTGRES_DB=${POSTGRES_USER_PLANT_DB:-user_plant_management_db}
       - POSTGRES_USER=${POSTGRES_USER_PLANT_USER:-admin}
       - POSTGRES_PASSWORD=${POSTGRES_USER_PLANT_PASSWORD:-admin123}
-      - POSTGRES_HOST_AUTH_METHOD=trust
     networks:
       - rootly-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_PLANT_USER:-postgres} -d ${POSTGRES_USER_PLANT_DB:-rootly}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_PLANT_USER:-admin} -d ${POSTGRES_USER_PLANT_DB:-user_plant_management_db}"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -223,6 +222,14 @@ services:
         condition: service_healthy
     networks:
       - rootly-network
+    env_file:
+      - .env
+    environment:
+      - HOST_IP=${HOST_IP:-}
+      - EXTERNAL_PORT=${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}
+      - INFLUXDB_URL=http://db-data-management:8086
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -339,7 +346,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER_PLANT_USER:-postgres}:${POSTGRES_USER_PLANT_PASSWORD:-admin123}@db-user-plant-management:5432/${POSTGRES_USER_PLANT_DB:-user_plant_management}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER_PLANT_USER:-admin}:${POSTGRES_USER_PLANT_PASSWORD:-admin123}@db-user-plant-management:5432/${POSTGRES_USER_PLANT_DB:-user_plant_management_db}
       - MINIO_ENDPOINT=stg-user-plant-management:9000
       - MINIO_ACCESS_KEY=${MINIO_USER_PLANT_ROOT_USER:-admin}
       - MINIO_SECRET_KEY=${MINIO_USER_PLANT_ROOT_PASSWORD:-admin123}
@@ -350,22 +357,63 @@ services:
       retries: 3
       start_period: 60s
 
-  # Frontend (React) - User interface for the agricultural monitoring platform
-  frontend:
+  # Frontend SSR (Next.js) - User interface for the agricultural monitoring platform
+  frontend-ssr:
     build:
-      context: ../rootly-frontend
+      context: ../rootly-ssr-frontend
       dockerfile: Dockerfile
-    container_name: frontend
+    container_name: frontend-ssr
     restart: unless-stopped
     ports:
-      - "${FRONTEND_EXTERNAL_PORT:-3005}:3000"
+      - "${FRONTEND_EXTERNAL_PORT:-3001}:3001"
+    depends_on:
+      api-gateway:
+        condition: service_started
     networks:
       - rootly-network
+    environment:
+      - NODE_ENV=production
+      - API_GATEWAY_URL=http://api-gateway:8080
+      - NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080
+      - AUTH_URL=http://api-gateway:8080
+      - PLANTS_URL=http://api-gateway:8080
+      - ANALYTICS_URL=http://api-gateway:8080
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+
+  # API Gateway (Go)
+  api-gateway:
+    build:
+      context: ../rootly-apigateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - be-analytics
+      - be-authentication-and-roles
+      - be-data-management
+      - be-user-plant-management
+    networks:
+      - rootly-network
+    env_file:
+      - .env
+    environment:
+      - CONFIG_FILE=/etc/rootly/config.yaml
+      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
+      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
+      - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8002
+      - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 10s
 
 # ============================================================================
