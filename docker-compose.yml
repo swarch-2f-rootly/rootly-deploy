@@ -29,7 +29,7 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: queue-ui-data-ingestion
     ports:
-      - "${QUEUE_UI_PORT:-8081}:8080"
+      - "${QUEUE_UI_PORT:-8082}:8080"
     environment:
       - KAFKA_CLUSTERS_0_NAME=${QUEUE_UI_CLUSTER_NAME:-local}
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${QUEUE_UI_BOOTSTRAP_SERVERS:-kafka:9092}
@@ -281,6 +281,7 @@ services:
       - PORT=8080
       - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-true}
       - GRAPHQL_PLAYGROUND_ENABLED=${GRAPHQL_PLAYGROUND_ENABLED:-true}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
       - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
       - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8000
@@ -357,7 +358,7 @@ services:
     container_name: frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_EXTERNAL_PORT:-3000}:3000"
+      - "${FRONTEND_EXTERNAL_PORT:-3005}:3000"
     networks:
       - rootly-network
     healthcheck:
