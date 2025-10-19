@@ -92,11 +92,10 @@ services:
       - POSTGRES_DB=${POSTGRES_USER_PLANT_DB:-user_plant_management_db}
       - POSTGRES_USER=${POSTGRES_USER_PLANT_USER:-admin}
       - POSTGRES_PASSWORD=${POSTGRES_USER_PLANT_PASSWORD:-admin123}
-      - POSTGRES_HOST_AUTH_METHOD=trust
     networks:
       - rootly-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_PLANT_USER:-postgres} -d ${POSTGRES_USER_PLANT_DB:-rootly}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_PLANT_USER:-admin} -d ${POSTGRES_USER_PLANT_DB:-user_plant_management_db}"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -287,7 +286,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER_PLANT_USER:-postgres}:${POSTGRES_USER_PLANT_PASSWORD:-admin123}@db-user-plant-management:5432/${POSTGRES_USER_PLANT_DB:-user_plant_management}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER_PLANT_USER:-admin}:${POSTGRES_USER_PLANT_PASSWORD:-admin123}@db-user-plant-management:5432/${POSTGRES_USER_PLANT_DB:-user_plant_management_db}
       - MINIO_ENDPOINT=stg-user-plant-management:9000
       - MINIO_ACCESS_KEY=${MINIO_USER_PLANT_ROOT_USER:-admin}
       - MINIO_SECRET_KEY=${MINIO_USER_PLANT_ROOT_PASSWORD:-admin123}
@@ -324,6 +323,37 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+
+  # API Gateway (Go)
+  api-gateway:
+    build:
+      context: ../rootly-apigateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - be-analytics
+      - be-authentication-and-roles
+      - be-data-management
+      - be-user-plant-management
+    networks:
+      - rootly-network
+    env_file:
+      - .env
+    environment:
+      - CONFIG_FILE=/etc/rootly/config.yaml
+      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
+      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
+      - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8002
+      - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 10s
 
 # ============================================================================

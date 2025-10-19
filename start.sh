@@ -1,6 +1,76 @@
 #!/bin/bash
 
 # Auto-detect LAN IP and start Rootly services
+# Usage: ./start.sh [--stash]
+#   --stash: Stash local changes before updating repositories
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Check if --stash flag is provided
+STASH_CHANGES=false
+if [[ "$1" == "--stash" ]]; then
+    STASH_CHANGES=true
+fi
+
+# Update all repositories to main branch
+update_repositories() {
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}Updating Repositories to Main Branch${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
+    
+    local parent_dir=$(dirname "$(pwd)")
+    local repos=(
+        "rootly-analytics-backend"
+        "rootly-apigateway"
+        "rootly-authentication-and-roles-backend"
+        "rootly-data-management-backend"
+        "rootly-frontend"
+        "rootly-user-plant-management-backend"
+    )
+    
+    for repo in "${repos[@]}"; do
+        local repo_path="$parent_dir/$repo"
+        
+        if [ -d "$repo_path/.git" ]; then
+            echo -e "${YELLOW}→ Updating $repo...${NC}"
+            
+            cd "$repo_path" || continue
+            
+            # Stash local changes only if --stash flag is provided
+            if [ "$STASH_CHANGES" = true ] && (! git diff --quiet || ! git diff --cached --quiet); then
+                echo -e "${YELLOW}  Stashing local changes...${NC}"
+                git stash save "Auto-stash before switching to main - $(date '+%Y-%m-%d %H:%M:%S')"
+            fi
+            
+            # Fetch latest changes
+            git fetch origin
+            
+            # Switch to main branch
+            if git checkout main 2>/dev/null; then
+                # Pull latest changes
+                if git pull origin main; then
+                    echo -e "${GREEN}  ✓ $repo updated to main${NC}"
+                else
+                    echo -e "${RED}  ✗ Failed to pull $repo${NC}"
+                fi
+            else
+                echo -e "${YELLOW}  ⚠ Could not checkout main for $repo (staying on current branch)${NC}"
+            fi
+            
+            cd - > /dev/null
+        else
+            echo -e "${YELLOW}  ⚠ Skipping $repo (not a git repository)${NC}"
+        fi
+    done
+    
+    echo ""
+}
 
 detect_lan_ip() {
     local lan_ip=""
@@ -48,6 +118,9 @@ copy_env_if_not_exists_frontend() {
     fi
 }
 
+# Main execution starts here
+update_repositories
+
 copy_env_if_not_exists
 copy_env_if_not_exists_frontend
 
@@ -75,22 +148,31 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if ! command -v docker compose &> /dev/null; then
-    echo "Error: docker compose not available"
+# Determine compose command (prefer 'docker compose' plugin, fallback to 'docker-compose')
+COMPOSE_CMD=""
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+else
+    echo "Error: neither 'docker compose' nor 'docker-compose' is available"
     exit 1
 fi
 
-if docker compose ps --format json 2>/dev/null | grep -q "running"; then
+echo "Using compose command: $COMPOSE_CMD"
+
+# If services are running, stop them first
+if $COMPOSE_CMD ps --format json 2>/dev/null | grep -q "running"; then
     echo "Stopping existing services..."
-    docker compose down
+    $COMPOSE_CMD down
 fi
 
 echo "Starting services..."
-docker compose up -d --build
+$COMPOSE_CMD up -d --build
 
 echo ""
 echo "Service status:"
-docker compose ps
+$COMPOSE_CMD ps
 
 echo ""
 echo "Health check URLs:"

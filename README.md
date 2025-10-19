@@ -77,7 +77,7 @@ This script automatically:
 4. **Start all services**
 
     ```bash
-    docker-compose up -d --build
+  docker-compose up -d --build
     ```
 
 5. **Check service health**
@@ -150,6 +150,16 @@ Once started, the services will be available at:
   - Health Check: <http://localhost:8003/health>
 
 - **Frontend**: <http://localhost:3000>
+
+- **API Gateway**: <http://localhost:8080>
+  - Health: <http://localhost:8080/health>
+  - Proxy example: <http://localhost:8080/api/v1/health>
+
+- **Mock Users Service**: <http://localhost:8101>
+  - Health: <http://localhost:8101/health>
+
+- **Mock Payments Service**: <http://localhost:8102>
+  - Health: <http://localhost:8102/health>
 
 - **InfluxDB**: <http://localhost:8086>
   - Admin UI: Access via web browser
