@@ -21,10 +21,8 @@ The platform consists of eleven main services:
 8. **Analytics Backend** (Python) - Provides analytics and insights
 9. **Authentication Backend** (Python) - Handles user authentication and management
 10. **User Plant Management Backend** (Python) - Handles user plant management
-11. **API Gateway** (Go) - Routes and orchestrates requests across backend services
-12. **Frontend** (React) - User interface for the agricultural monitoring platform
-
-> **Note**: Mock services for testing are available in the `rootly-apigateway` repository but are **NOT** included in this production deployment. For testing the API Gateway with mock services, use `docker-compose.test.yml` in the API Gateway repository.
+11. **API Gateway** (Go) - GraphQL + REST proxy with JWT authentication
+12. **Frontend SSR** (Next.js) - Server-side rendered user interface for the agricultural monitoring platform
 
 ## Quick Start
 
@@ -32,7 +30,7 @@ The platform consists of eleven main services:
 
 - Docker and Docker Compose installed
 - At least 6GB RAM available
-- Ports 8000, 8001, 8002, 8003, 3000, 8086, 9000, 9001, 9002, 9003, 9004, 9005, 5432, 5433 available
+- Ports 8000, 8001, 8002, 8003, 8080, 3001, 8086, 9000, 9001, 9002, 9003, 9004, 9005, 5432, 5433 available
 
 ### Quick Setup (Recommended)
 

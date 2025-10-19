@@ -112,9 +112,9 @@ copy_env_if_not_exists() {
 }
 
 copy_env_if_not_exists_frontend() {
-    if [ ! -f ../rootly-frontend/.env ]; then
-        cp ../rootly-frontend/.env.example ../rootly-frontend/.env
-        echo "Copied .env.example to .env"
+    if [ ! -f ../rootly-ssr-frontend/.env ]; then
+        cp ../rootly-ssr-frontend/.env.example ../rootly-ssr-frontend/.env
+        echo "Copied .env.example to .env for SSR frontend"
     fi
 }
 
@@ -135,28 +135,13 @@ else
 fi
 
 echo "Host IP: $HOST_IP"
-echo ""
-echo "=========================================="
-echo "Rootly Platform - Production Deployment"
-echo "=========================================="
-echo ""
-echo "Application Services:"
-echo "  • API Gateway:              http://$HOST_IP:8080"
-echo "  • Analytics Backend:        http://$HOST_IP:8000"
-echo "  • Authentication Backend:   http://$HOST_IP:8001"
-echo "  • Data Management Backend:  http://$HOST_IP:8002"
-echo "  • User Plant Management:    http://$HOST_IP:8003"
-echo "  • Frontend:                 http://$HOST_IP:3000"
-echo ""
-echo "Infrastructure Services:"
-echo "  • InfluxDB:                 http://$HOST_IP:8086"
-echo "  • MinIO (Data):             http://$HOST_IP:9000"
-echo "  • MinIO Console (Data):     http://$HOST_IP:9001"
-echo "  • MinIO (Auth):             http://$HOST_IP:9002"
-echo "  • MinIO Console (Auth):     http://$HOST_IP:9003"
-echo "  • PostgreSQL (Auth):        localhost:5432"
-echo "  • PostgreSQL (User Plant):  localhost:5433"
-echo ""
+echo "Services will be available at:"
+echo "  Data Management: http://$HOST_IP:8002"
+echo "  Analytics: http://$HOST_IP:8000"
+echo "  Authentication: http://$HOST_IP:8001"
+echo "  API Gateway: http://$HOST_IP:8080"
+echo "  Frontend SSR: http://$HOST_IP:3001"
+echo "  GraphQL Playground: http://$HOST_IP:8080/graphql"
 
 if ! command -v docker &> /dev/null; then
     echo "Error: Docker not found"
@@ -190,29 +175,9 @@ echo "Service status:"
 $COMPOSE_CMD ps
 
 echo ""
-echo "=========================================="
-echo "Health Check URLs:"
-echo "=========================================="
-echo "  • API Gateway:              http://$HOST_IP:8080/health"
-echo "  • Analytics:                http://$HOST_IP:8000/health"
-echo "  • Authentication:           http://$HOST_IP:8001/health"
-echo "  • Data Management:          http://$HOST_IP:8002/health"
-echo "  • User Plant Management:    http://$HOST_IP:8003/health"
-echo ""
-echo "=========================================="
-echo "Deployment Complete!"
-echo "=========================================="
-echo ""
-echo "💡 Tips:"
-echo "  • View logs: $COMPOSE_CMD logs -f [service-name]"
-echo "  • Stop all:  $COMPOSE_CMD down"
-echo "  • Restart:   $COMPOSE_CMD restart [service-name]"
-echo ""
-echo "� Repository Update:"
-echo "  • All repos updated to main branch"
-echo "  • To stash changes: ./start.sh --stash"
-echo ""
-echo "�📝 Note: This is a PRODUCTION deployment."
-echo "   For testing with mock services, use:"
-echo "   cd ../rootly-apigateway && docker-compose -f docker-compose.test.yml up"
-echo ""
+echo "Health check URLs:"
+echo "  Data Management: http://$HOST_IP:8002/health"
+echo "  Analytics: http://$HOST_IP:8000/health"
+echo "  Authentication: http://$HOST_IP:8001/health"
+echo "  API Gateway: http://$HOST_IP:8080/health"
+echo "  Frontend SSR: http://$HOST_IP:3001"
