@@ -42,9 +42,9 @@ copy_env_if_not_exists() {
 }
 
 copy_env_if_not_exists_frontend() {
-    if [ ! -f ../rootly-frontend/.env ]; then
-        cp ../rootly-frontend/.env.example ../rootly-frontend/.env
-        echo "Copied .env.example to .env"
+    if [ ! -f ../rootly-ssr-frontend/.env ]; then
+        cp ../rootly-ssr-frontend/.env.example ../rootly-ssr-frontend/.env
+        echo "Copied .env.example to .env for SSR frontend"
     fi
 }
 
@@ -66,7 +66,9 @@ echo "Services will be available at:"
 echo "  Data Management: http://$HOST_IP:8002"
 echo "  Analytics: http://$HOST_IP:8000"
 echo "  Authentication: http://$HOST_IP:8001"
-echo "  Frontend: http://$HOST_IP:3000"
+echo "  API Gateway: http://$HOST_IP:8080"
+echo "  Frontend SSR: http://$HOST_IP:3001"
+echo "  GraphQL Playground: http://$HOST_IP:8080/graphql"
 
 if ! command -v docker &> /dev/null; then
     echo "Error: Docker not found"
@@ -92,6 +94,8 @@ docker compose ps
 
 echo ""
 echo "Health check URLs:"
-echo "  http://$HOST_IP:8002/health"
-echo "  http://$HOST_IP:8000/health"
-echo "  http://$HOST_IP:8001/health"
+echo "  Data Management: http://$HOST_IP:8002/health"
+echo "  Analytics: http://$HOST_IP:8000/health"
+echo "  Authentication: http://$HOST_IP:8001/health"
+echo "  API Gateway: http://$HOST_IP:8080/health"
+echo "  Frontend SSR: http://$HOST_IP:3001"
