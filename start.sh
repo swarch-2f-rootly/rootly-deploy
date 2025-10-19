@@ -30,7 +30,7 @@ update_repositories() {
         "rootly-apigateway"
         "rootly-authentication-and-roles-backend"
         "rootly-data-management-backend"
-        "rootly-frontend"
+        "rootly-ssr-frontend"
         "rootly-user-plant-management-backend"
     )
     
