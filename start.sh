@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # Auto-detect LAN IP and start Rootly services
-# Usage: ./start.sh [--stash]
+# Usage: ./start.sh [--stash] [--no-update]
 #   --stash: Stash local changes before updating repositories
+#   --no-update: Skip repository updates
 
 # Colors for output
 RED='\033[0;31m'
@@ -11,11 +12,23 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Check if --stash flag is provided
+# Parse flags
 STASH_CHANGES=false
-if [[ "$1" == "--stash" ]]; then
-    STASH_CHANGES=true
-fi
+SKIP_UPDATE=false
+
+for arg in "$@"; do
+    case $arg in
+        --stash)
+            STASH_CHANGES=true
+            ;;
+        --no-update)
+            SKIP_UPDATE=true
+            ;;
+        *)
+            echo -e "${YELLOW}Warning: Unknown flag '$arg' ignored${NC}"
+            ;;
+    esac
+done
 
 # Update all repositories to main branch
 update_repositories() {
@@ -120,7 +133,12 @@ copy_env_if_not_exists_frontend() {
 }
 
 # Main execution starts here
-update_repositories
+if [ "$SKIP_UPDATE" = false ]; then
+    update_repositories
+else
+    echo -e "${YELLOW}Skipping repository updates (--no-update flag provided)${NC}"
+    echo ""
+fi
 
 copy_env_if_not_exists
 copy_env_if_not_exists_frontend
