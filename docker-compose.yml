@@ -287,7 +287,7 @@ services:
       - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
       - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
       - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8000
-      - ANALYTICS_SERVICE_URL=http://be-analytics:8000Vkkk
+      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
 
   # Authentication Backend (Python) - Handles user authentication and management
   be-authentication-and-roles:
