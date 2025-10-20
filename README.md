@@ -4,7 +4,7 @@ This directory contains the unified deployment configuration for the entire Root
 
 ## Architecture Overview
 
-The platform consists of eleven main services:
+The platform consists of the following main services:
 
 ### Infrastructure Services
 
@@ -14,15 +14,18 @@ The platform consists of eleven main services:
 4. **MinIO Auth** - Object storage for user profile photos
 5. **PostgreSQL User Plant Management** - Relational database for user plant data
 6. **MinIO User Plant** - Object storage for user plant files
+7. **Kafka** - Message queue for data ingestion
+8. **Zookeeper** - Coordination service for Kafka
 
 ### Application Services
 
-7. **Data Management Backend** (Go) - Handles data ingestion and management
-8. **Analytics Backend** (Python) - Provides analytics and insights
-9. **Authentication Backend** (Python) - Handles user authentication and management
-10. **User Plant Management Backend** (Python) - Handles user plant management
-11. **API Gateway** (Go) - GraphQL + REST proxy with JWT authentication
-12. **Frontend SSR** (Next.js) - Server-side rendered user interface for the agricultural monitoring platform
+9. **Data Ingestion Backend** (Python) - Handles data ingestion through Kafka
+10. **Data Processing Backend** (Python) - Processes and stores data in InfluxDB and MinIO
+11. **Analytics Backend** (Python) - Provides analytics and insights
+12. **Authentication Backend** (Python) - Handles user authentication and management
+13. **User Plant Management Backend** (Python) - Handles user plant management
+14. **API Gateway** (Go) - GraphQL + REST proxy with JWT authentication
+15. **Frontend SSR** (Next.js) - Server-side rendered user interface for the agricultural monitoring platform
 
 ## Quick Start
 
@@ -30,7 +33,11 @@ The platform consists of eleven main services:
 
 - Docker and Docker Compose installed
 - At least 6GB RAM available
-- Ports 8000, 8001, 8002, 8003, 8080, 3001, 8086, 9000, 9001, 9002, 9003, 9004, 9005, 5432, 5433 available
+- Ports available:
+  - Application Services: 8000, 8001, 8002, 8003, 8005, 8080, 3001
+  - Infrastructure: 8086 (InfluxDB), 9092 (Kafka), 2181 (Zookeeper), 8082 (Kafka UI)
+  - Storage: 9000-9005 (MinIO ports and consoles)
+  - Databases: 5432, 5433 (PostgreSQL)
 
 ### Quick Setup (Recommended)
 
@@ -109,10 +116,19 @@ If you prefer to configure each service manually:
    cd ../rootly-deployment
    ```
 
-   **For Data Management Backend:**
+   **For Data Ingestion Backend:**
 
    ```bash
-   cd ../rootly-data-management-backend
+   cd ../rootly-data-ingestion
+   cp .env.example .env
+   # Edit .env file if needed
+   cd ../rootly-deployment
+   ```
+
+   **For Data Processing Backend:**
+
+   ```bash
+   cd ../rootly-data-processing
    cp .env.example .env
    # Edit .env file if needed
    cd ../rootly-deployment
@@ -142,24 +158,22 @@ Once started, the services will be available at:
   - API Documentation: <http://localhost:8000/docs>
   - Health Check: <http://localhost:8000/health>
 
-- **Data Management Backend**: <http://localhost:8002>
-  - GraphQL Playground: <http://localhost:8002/>
+- **Data Processing Backend**: <http://localhost:8002>
+  - API Documentation: <http://localhost:8002/docs>
   - Health Check: <http://localhost:8002/health>
+
+- **Data Ingestion Backend**: <http://localhost:8005>
+  - API Documentation: <http://localhost:8005/docs>
+  - Health Check: <http://localhost:8005/health>
 
 - **User Plant Management Backend**: <http://localhost:8003>
   - Health Check: <http://localhost:8003/health>
 
-- **Frontend**: <http://localhost:3000>
+- **Frontend SSR**: <http://localhost:3001>
 
 - **API Gateway**: <http://localhost:8080>
   - Health: <http://localhost:8080/health>
-  - Proxy example: <http://localhost:8080/api/v1/health>
-
-- **Mock Users Service**: <http://localhost:8101>
-  - Health: <http://localhost:8101/health>
-
-- **Mock Payments Service**: <http://localhost:8102>
-  - Health: <http://localhost:8102/health>
+  - GraphQL Playground: <http://localhost:8080/graphql>
 
 - **InfluxDB**: <http://localhost:8086>
   - Admin UI: Access via web browser
@@ -177,6 +191,9 @@ Once started, the services will be available at:
   - Console: <http://localhost:9005>
   - Credentials: admin / admin123
 
+- **Kafka UI**: <http://localhost:8082>
+  - Kafka queue management interface
+
 - **PostgreSQL Authentication**: localhost:5432
   - Database: authentication_and_roles_db
   - User: admin
@@ -193,19 +210,24 @@ The services start in the correct order with health checks:
 
 ```
 Infrastructure Services:
-- InfluxDB (db-data-management)
-- MinIO Data Lake (stg-data-management)
+- Zookeeper (zookeeper-data-ingestion)
+- Kafka (queue-data-ingestion) - depends on Zookeeper
+- Kafka UI (queue-ui-data-ingestion) - depends on Kafka
+- InfluxDB (db-data-processing)
+- MinIO Data Lake (stg-data-processing)
 - PostgreSQL Auth (db-authentication-and-roles)
 - MinIO Auth (stg-authentication-and-roles)
 - PostgreSQL User Plant (db-user-plant-management)
 - MinIO User Plant (stg-user-plant-management)
 
 Application Services:
-- Data Management Backend (depends on InfluxDB + MinIO Data)
-- Analytics Backend (depends on InfluxDB)
+- Data Ingestion Backend (depends on Kafka)
+- Data Processing Backend (depends on InfluxDB + MinIO Data + Kafka)
+- Analytics Backend (depends on InfluxDB + MinIO Data)
 - Authentication Backend (depends on PostgreSQL Auth + MinIO Auth)
 - User Plant Management Backend (depends on PostgreSQL User Plant + MinIO User Plant)
-- Frontend (no dependencies)
+- API Gateway (depends on all backend services)
+- Frontend SSR (depends on API Gateway)
 ```
 
 ## Development Commands
@@ -254,11 +276,18 @@ All configuration is handled through the `.env` file. Key variables:
 
 - `INFLUXDB_*` - InfluxDB configuration
 - `MINIO_*` - MinIO configuration
+- `KAFKA_*` - Kafka message queue configuration
+- `ZOOKEEPER_*` - Zookeeper configuration
 
 #### Applications
 
-- `DATA_MANAGEMENT_PORT` - Data management backend port (default: 8080)
+- `DATA_INGESTION_PORT` - Data ingestion backend port (default: 8005)
+- `DATA_PROCESSING_PORT` - Data processing backend port (default: 8002)
 - `ANALYTICS_PORT` - Analytics backend port (default: 8000)
+- `AUTH_PORT` - Authentication backend port (default: 8001)
+- `USER_PLANT_MANAGEMENT_PORT` - User plant management backend port (default: 8003)
+- `API_GATEWAY_PORT` - API Gateway port (default: 8080)
+- `FRONTEND_PORT` - Frontend SSR port (default: 3001)
 
 ### Networking
 
@@ -291,7 +320,8 @@ This script runs integration tests for:
 
 - Analytics Backend (Python pytest)
 - Authentication Backend (Python pytest)
-- Data Management Backend (Go tests)
+- Data Ingestion Backend (Go tests)
+- Data Processing Backend (Go tests)
 
 ## Monitoring
 
@@ -322,9 +352,14 @@ docker-compose logs -f [service-name]
 
 ### Common Issues
 
-1. **Port conflicts**: Ensure ports 8000, 8001, 8002, 8003, 3000, 8086, 9000-9005, 5432, 5433 are available
+1. **Port conflicts**: Ensure the following ports are available:
+   - Application Services: 8000, 8001, 8002, 8003, 8005, 8080, 3001
+   - Infrastructure: 8086 (InfluxDB), 9092 (Kafka), 2181 (Zookeeper), 8082 (Kafka UI)
+   - Storage: 9000-9005 (MinIO ports and consoles)
+   - Databases: 5432, 5433 (PostgreSQL)
 2. **Memory issues**: Ensure at least 6GB RAM available
 3. **Slow startup**: First run may take several minutes due to health checks
+4. **Kafka connection issues**: Ensure Zookeeper is running before Kafka starts
 
 ### Debug Commands
 

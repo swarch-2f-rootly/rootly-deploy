@@ -29,7 +29,8 @@ update_repositories() {
         "rootly-analytics-backend"
         "rootly-apigateway"
         "rootly-authentication-and-roles-backend"
-        "rootly-data-management-backend"
+        "rootly-data-processing"
+        "rootly-data-ingestion"
         "rootly-ssr-frontend"
         "rootly-user-plant-management-backend"
     )
@@ -136,7 +137,8 @@ fi
 
 echo "Host IP: $HOST_IP"
 echo "Services will be available at:"
-echo "  Data Management: http://$HOST_IP:8002"
+echo "  Data Ingestion: http://$HOST_IP:8005"
+echo "  Data Processing: http://$HOST_IP:8002"
 echo "  Analytics: http://$HOST_IP:8000"
 echo "  Authentication: http://$HOST_IP:8001"
 echo "  API Gateway: http://$HOST_IP:8080"
@@ -176,7 +178,8 @@ $COMPOSE_CMD ps
 
 echo ""
 echo "Health check URLs:"
-echo "  Data Management: http://$HOST_IP:8002/health"
+echo "  Data Ingestion: http://$HOST_IP:8005/health"
+echo "  Data Processing: http://$HOST_IP:8002/health"
 echo "  Analytics: http://$HOST_IP:8000/health"
 echo "  Authentication: http://$HOST_IP:8001/health"
 echo "  API Gateway: http://$HOST_IP:8080/health"
