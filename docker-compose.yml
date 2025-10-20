@@ -5,16 +5,20 @@ services:
     container_name: queue-data-ingestion
     ports:
       - "${KAFKA_PORT:-9092}:9092"
+      - "9093:9093"
     environment:
-      - KAFKA_BROKER_ID=${KAFKA_BROKER_ID:-1}
-      - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT:-zookeeper-data-ingestion:2181}
-      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:-PLAINTEXT:PLAINTEXT}
-      - KAFKA_ADVERTISED_LISTENERS=${KAFKA_ADVERTISED_LISTENERS:-PLAINTEXT://queue-data-ingestion:9092}
-      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:-1}
-      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=${KAFKA_TRANSACTION_STATE_LOG_MIN_ISR:-1}
-      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=${KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR:-1}
-    depends_on:
-      - zookeeper-data-ingestion
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_NODE_ID=${KAFKA_NODE_ID:-1}
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://queue-data-ingestion:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@queue-data-ingestion:9093
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
     networks:
       - rootly-network
     healthcheck:
@@ -39,17 +43,6 @@ services:
       - rootly-network
     restart: unless-stopped
 
-  zookeeper-data-ingestion:
-    image: confluentinc/cp-zookeeper:latest
-    container_name: zookeeper-data-ingestion
-    ports:
-      - "${ZOOKEEPER_PORT:-2181}:2181"
-    environment:
-      - ZOOKEEPER_CLIENT_PORT=${ZOOKEEPER_CLIENT_PORT:-2181}
-      - ZOOKEEPER_TICK_TIME=${ZOOKEEPER_TICK_TIME:-2000}
-    networks:
-      - rootly-network
-    restart: unless-stopped
   # InfluxDB - Time Series Database (Shared by both backends)
   db-data-processing:
     image: influxdb:2.7.5
@@ -229,7 +222,7 @@ services:
     environment:
       - HOST_IP=${HOST_IP:-}
       - EXTERNAL_PORT=${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}
-      - INFLUXDB_URL=http://db-data-management:8086
+      - INFLUXDB_URL=http://db-data-processing:8086
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -403,6 +396,8 @@ volumes:
   postgres_user_plant_data:
     driver: local
   minio_user_plant_data:
+    driver: local
+  kafka-data:
     driver: local
 
 # ============================================================================
