@@ -136,7 +136,11 @@ services:
     networks:
       - rootly-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_PLANT_USER:-admin} -d ${POSTGRES_USER_PLANT_DB:-user_plant_management_db}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER_PLANT_USER:-admin} -d ${POSTGRES_USER_PLANT_DB:-user_plant_management_db}",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -222,8 +226,6 @@ services:
         condition: service_healthy
     networks:
       - rootly-network
-    env_file:
-      - .env
     environment:
       - HOST_IP=${HOST_IP:-}
       - EXTERNAL_PORT=${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}
@@ -292,7 +294,7 @@ services:
       - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
       - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
       - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8000
-      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
+      - ANALYTICS_SERVICE_URL=http://be-analytics:8000Vkkk
 
   # Authentication Backend (Python) - Handles user authentication and management
   be-authentication-and-roles:
@@ -384,37 +386,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  # API Gateway (Go)
-  api-gateway:
-    build:
-      context: ../rootly-apigateway
-      dockerfile: Dockerfile
-    container_name: api-gateway
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    depends_on:
-      - be-analytics
-      - be-authentication-and-roles
-      - be-data-management
-      - be-user-plant-management
-    networks:
-      - rootly-network
-    env_file:
-      - .env
-    environment:
-      - CONFIG_FILE=/etc/rootly/config.yaml
-      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
-      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
-      - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8002
-      - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
 # ============================================================================
 # VOLUMES
