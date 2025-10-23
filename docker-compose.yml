@@ -17,21 +17,10 @@ services:
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:-1}
       - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=${KAFKA_TRANSACTION_STATE_LOG_MIN_ISR:-1}
       - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=${KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR:-1}
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    depends_on:
-      - zookeeper-data-ingestion
-=======
-=======
->>>>>>> Stashed changes
       - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS:-/var/lib/kafka/data}
       - CLUSTER_ID=${CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
     volumes:
       - kafka_data:/var/lib/kafka/data
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     networks:
       - rootly-network
     healthcheck:
@@ -49,37 +38,13 @@ services:
       - "${QUEUE_UI_PORT:-8082}:8080"
     environment:
       - KAFKA_CLUSTERS_0_NAME=${QUEUE_UI_CLUSTER_NAME:-local}
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${QUEUE_UI_BOOTSTRAP_SERVERS:-kafka:9092}
-=======
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${QUEUE_UI_BOOTSTRAP_SERVERS:-queue-data-ingestion:29092}
->>>>>>> Stashed changes
-=======
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${QUEUE_UI_BOOTSTRAP_SERVERS:-queue-data-ingestion:29092}
->>>>>>> Stashed changes
     depends_on:
       - queue-data-ingestion
     networks:
       - rootly-network
     restart: unless-stopped
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  zookeeper-data-ingestion:
-    image: confluentinc/cp-zookeeper:latest
-    container_name: zookeeper-data-ingestion
-    ports:
-      - "${ZOOKEEPER_PORT:-2181}:2181"
-    environment:
-      - ZOOKEEPER_CLIENT_PORT=${ZOOKEEPER_CLIENT_PORT:-2181}
-      - ZOOKEEPER_TICK_TIME=${ZOOKEEPER_TICK_TIME:-2000}
-    networks:
-      - rootly-network
-    restart: unless-stopped
-=======
-=======
->>>>>>> Stashed changes
   # Zookeeper is no longer needed with Kafka KRaft mode
   # zookeeper-data-ingestion:
   #   image: confluentinc/cp-zookeeper:latest
@@ -93,7 +58,6 @@ services:
   #     - rootly-network
   #   restart: unless-stopped
 
->>>>>>> Stashed changes
   # InfluxDB - Time Series Database (Shared by both backends)
   db-data-processing:
     image: influxdb:2.7.5
@@ -418,23 +382,11 @@ services:
     environment:
       # Node environment
       - NODE_ENV=production
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      - API_GATEWAY_URL=http://api-gateway:8080
-      - NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080
-=======
       - DOCKER_ENV=true
 
       # Internal API Gateway URL (used by server-side code)
       # This is the URL the Next.js server uses to communicate with the API Gateway
       - API_GATEWAY_URL=http://api-gateway:8080
-=======
-      - DOCKER_ENV=true
-
-      # Internal API Gateway URL (used by server-side code)
-      # This is the URL the Next.js server uses to communicate with the API Gateway
-      - API_GATEWAY_URL=http://api-gateway:8080
->>>>>>> Stashed changes
 
       # Public API Gateway URL (used by client-side code in browser)
       # This should be accessible from the user's browser
@@ -443,10 +395,6 @@ services:
 
       # Legacy environment variables (for backward compatibility)
       - BASE_URL=http://api-gateway:8080
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
       - AUTH_URL=http://api-gateway:8080
       - PLANTS_URL=http://api-gateway:8080
       - ANALYTICS_URL=http://api-gateway:8080
