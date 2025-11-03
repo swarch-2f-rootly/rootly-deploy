@@ -250,8 +250,6 @@ services:
       dockerfile: Dockerfile
     container_name: api-gateway
     restart: unless-stopped
-    ports:
-      - "${API_GATEWAY_EXTERNAL_PORT:-8080}:8080"
     depends_on:
       be-authentication-and-roles:
         condition: service_started
@@ -262,7 +260,6 @@ services:
       be-analytics:
         condition: service_started
     networks:
-      - rootly-public-network
       - rootly-private-network
     env_file:
       - .env
