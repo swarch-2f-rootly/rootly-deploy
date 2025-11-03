@@ -176,6 +176,20 @@ services:
   # ============================================================================
   # APPLICATION SERVICES
   # ============================================================================
+  reverse_proxy:
+    image: nginx:latest
+    container_name: reverse_proxy
+    ports:
+      - "${REVERSE_PROXY_EXTERNAL_PORT:-80}:80" 
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend-ssr
+      - api-gateway
+    networks:
+      - rootly-public-network
+      - rootly-private-network
+
   be-data-ingestion:
     build:
       context: ../rootly-data-ingestion
@@ -346,12 +360,11 @@ services:
       - "${FRONTEND_EXTERNAL_PORT:-3001}:3001"
     networks:
       - rootly-public-network
-      - rootly-private-network
     environment:
       - NODE_ENV=production
-      - BASE_URL=http://api-gateway:8080
-      - API_GATEWAY_URL=http://api-gateway:8080
-      - NEXT_PUBLIC_API_GATEWAY_URL=http://api-gateway:8080
+      - BASE_URL=http://reverse_proxy:80
+      - API_GATEWAY_URL=http://reverse_proxy:80
+      - NEXT_PUBLIC_API_GATEWAY_URL=http://reverse_proxy:80
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001"]
       interval: 30s
