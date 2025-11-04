@@ -190,18 +190,58 @@ services:
       - rootly-public-network
       - rootly-private-network
 
+  # Load Balancer para be-data-ingestion (componente separado, expuesto en red pública)
+  # Genera configuración dinámicamente basado en DATA_INGESTION_REPLICAS
+  load-balancer:
+    build:
+      context: ../rootly-loadbalancer
+      dockerfile: Dockerfile
+    container_name: load-balancer
+    ports:
+      - "${LOAD_BALANCER_EXTERNAL_PORT:-8000}:80"
+    environment:
+      - DATA_INGESTION_REPLICAS=${DATA_INGESTION_REPLICAS:-1}
+    env_file:
+      - .env
+    depends_on:
+      - be-data-ingestion
+    networks:
+      - rootly-public-network
+      - rootly-private-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   be-data-ingestion:
     build:
       context: ../rootly-data-ingestion
       dockerfile: Dockerfile
-    container_name: be-data-ingestion
     env_file:
       - .env
     depends_on:
       - queue-data-ingestion
+    expose:
+      - "8000"
     networks:
       - rootly-private-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      replicas: ${DATA_INGESTION_REPLICAS:-1}
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
   # Data Ingestion Backend (Go) - Handles data ingestion and storage
   be-data-processing:
     build:
