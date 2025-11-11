@@ -26,6 +26,7 @@ The platform consists of the following main services:
 13. **User Plant Management Backend** (Python) - Handles user plant management
 14. **API Gateway** (Go) - GraphQL + REST proxy with JWT authentication
 15. **Frontend SSR** (Next.js) - Server-side rendered user interface for the agricultural monitoring platform
+16. **Rootly WAF** (Nginx + ModSecurity) - HTTPS termination and application-layer protection in front of the public entry point
 
 ## Quick Start
 
@@ -34,7 +35,7 @@ The platform consists of the following main services:
 - Docker and Docker Compose installed
 - At least 6GB RAM available
 - Ports available:
-  - Application Services: 8000, 8001, 8002, 8003, 8005, 8080, 3001
+  - Application Services: 80, 443, 8000, 8001, 8002, 8003, 8005, 8080
   - Infrastructure: 8086 (InfluxDB), 9092 (Kafka), 2181 (Zookeeper), 8082 (Kafka UI)
   - Storage: 9000-9005 (MinIO ports and consoles)
   - Databases: 5432, 5433 (PostgreSQL)
@@ -169,11 +170,16 @@ Once started, the services will be available at:
 - **User Plant Management Backend**: <http://localhost:8003>
   - Health Check: <http://localhost:8003/health>
 
-- **Frontend SSR**: <http://localhost:3001>
+- **Rootly WAF**: <https://localhost> (certificado autofirmado en desarrollo)
+  - Fallback HTTP: <http://localhost>
+  - Rutas protegidas: `/`, `/api/`, `/graphql`
 
-- **API Gateway**: <http://localhost:8080>
-  - Health: <http://localhost:8080/health>
-  - GraphQL Playground: <http://localhost:8080/graphql>
+- **Frontend SSR**: expuesto a través del WAF (`https://localhost`)
+
+- **API Gateway**: expuesto mediante el WAF (`https://localhost/graphql`)
+  - Health (externo): `https://localhost/api/health` (proxied)
+  - Health interno: `http://api-gateway:8080/health`
+  - GraphQL Playground externo: `https://localhost/graphql`
 
 - **InfluxDB**: <http://localhost:8086>
   - Admin UI: Access via web browser
@@ -228,6 +234,8 @@ Application Services:
 - User Plant Management Backend (depends on PostgreSQL User Plant + MinIO User Plant)
 - API Gateway (depends on all backend services)
 - Frontend SSR (depends on API Gateway)
+- Reverse proxy (internal) (depends on Frontend SSR + API Gateway)
+- Rootly WAF (depends on reverse proxy)
 ```
 
 ## Development Commands
@@ -287,7 +295,7 @@ All configuration is handled through the `.env` file. Key variables:
 - `AUTH_PORT` - Authentication backend port (default: 8001)
 - `USER_PLANT_MANAGEMENT_PORT` - User plant management backend port (default: 8003)
 - `API_GATEWAY_PORT` - API Gateway port (default: 8080)
-- `FRONTEND_PORT` - Frontend SSR port (default: 3001)
+- `ROOTLY_WAF_HTTP_PORT` / `ROOTLY_WAF_HTTPS_PORT` - WAF exposed ports (default: 80 / 443)
 
 ### Networking
 
@@ -353,7 +361,7 @@ docker-compose logs -f [service-name]
 ### Common Issues
 
 1. **Port conflicts**: Ensure the following ports are available:
-   - Application Services: 8000, 8001, 8002, 8003, 8005, 8080, 3001
+   - Application Services: 80, 443, 8000, 8001, 8002, 8003, 8005, 8080
    - Infrastructure: 8086 (InfluxDB), 9092 (Kafka), 2181 (Zookeeper), 8082 (Kafka UI)
    - Storage: 9000-9005 (MinIO ports and consoles)
    - Databases: 5432, 5433 (PostgreSQL)
