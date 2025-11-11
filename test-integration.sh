@@ -85,8 +85,9 @@ echo "🔍 Testing Backend Services..."
 test_endpoint "$API_GATEWAY_URL/health" "API Gateway Health" 200
 test_endpoint "http://localhost:8000/health" "Analytics Service" 200
 test_endpoint "http://localhost:8001/health" "Authentication Service" 200
-test_endpoint "http://localhost:8002/health" "Data Management Service" 200
+test_endpoint "http://localhost:8002/health" "Data Processing Service" 200
 test_endpoint "http://localhost:8003/health" "Plant Management Service" 200
+test_endpoint "http://localhost:8005/health" "Data Ingestion Service" 200
 
 echo ""
 echo "🔍 Testing GraphQL Endpoints..."

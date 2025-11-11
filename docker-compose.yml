@@ -3,8 +3,6 @@ services:
   queue-data-ingestion:
     image: confluentinc/cp-kafka:latest
     container_name: queue-data-ingestion
-    ports:
-      - "${KAFKA_PORT:-9092}:9092"
     environment:
       - KAFKA_BROKER_ID=${KAFKA_BROKER_ID:-1}
       - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT:-zookeeper-data-ingestion:2181}
@@ -16,7 +14,7 @@ services:
     depends_on:
       - zookeeper-data-ingestion
     networks:
-      - rootly-network
+      - rootly-private-network
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "queue-data-ingestion:9092", "--list"]
       interval: 30s
@@ -28,35 +26,30 @@ services:
   queue-ui-data-ingestion:
     image: provectuslabs/kafka-ui:latest
     container_name: queue-ui-data-ingestion
-    ports:
-      - "${QUEUE_UI_PORT:-8082}:8080"
     environment:
       - KAFKA_CLUSTERS_0_NAME=${QUEUE_UI_CLUSTER_NAME:-local}
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${QUEUE_UI_BOOTSTRAP_SERVERS:-kafka:9092}
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${QUEUE_UI_BOOTSTRAP_SERVERS:-queue-data-ingestion:9092}
     depends_on:
       - queue-data-ingestion
     networks:
-      - rootly-network
+      - rootly-private-network
     restart: unless-stopped
 
   zookeeper-data-ingestion:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper-data-ingestion
-    ports:
-      - "${ZOOKEEPER_PORT:-2181}:2181"
     environment:
       - ZOOKEEPER_CLIENT_PORT=${ZOOKEEPER_CLIENT_PORT:-2181}
       - ZOOKEEPER_TICK_TIME=${ZOOKEEPER_TICK_TIME:-2000}
     networks:
-      - rootly-network
+      - rootly-private-network
     restart: unless-stopped
+
   # InfluxDB - Time Series Database (Shared by both backends)
   db-data-processing:
     image: influxdb:2.7.5
     container_name: db-data-processing
     restart: unless-stopped
-    ports:
-      - "${INFLUXDB_PORT:-8086}:8086"
     volumes:
       - influxdb_data:/var/lib/influxdb2
       - ./influxdb/init:/docker-entrypoint-initdb.d
@@ -68,7 +61,7 @@ services:
       - DOCKER_INFLUXDB_INIT_BUCKET=${DOCKER_INFLUXDB_INIT_BUCKET:-agricultural_data}
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN:-super-secret-influx-token}
     networks:
-      - rootly-network
+      - rootly-private-network
     healthcheck:
       test: ["CMD", "influx", "ping"]
       interval: 30s
@@ -81,9 +74,6 @@ services:
     image: minio/minio:latest
     container_name: stg-data-processing
     restart: unless-stopped
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio_data:/data
     environment:
@@ -91,7 +81,7 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-admin123}
     command: server /data --console-address ":${MINIO_CONSOLE_PORT:-9001}"
     networks:
-      - rootly-network
+      - rootly-private-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -103,8 +93,6 @@ services:
     image: postgres:15-alpine
     container_name: db-authentication-and-roles
     restart: unless-stopped
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -112,9 +100,9 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-admin}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
     networks:
-      - rootly-network
+      - rootly-private-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-auth_user} -d ${POSTGRES_DB:-auth_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-authentication_and_roles_db}"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -125,8 +113,6 @@ services:
     image: postgres:15-alpine
     container_name: db-user-plant-management
     restart: unless-stopped
-    ports:
-      - "${POSTGRES_USER_PLANT_PORT:-5433}:5432"
     volumes:
       - postgres_user_plant_data:/var/lib/postgresql/data
     environment:
@@ -134,9 +120,13 @@ services:
       - POSTGRES_USER=${POSTGRES_USER_PLANT_USER:-admin}
       - POSTGRES_PASSWORD=${POSTGRES_USER_PLANT_PASSWORD:-admin123}
     networks:
-      - rootly-network
+      - rootly-private-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_PLANT_USER:-admin} -d ${POSTGRES_USER_PLANT_DB:-user_plant_management_db}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER_PLANT_USER:-admin} -d ${POSTGRES_USER_PLANT_DB:-user_plant_management_db}",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -157,7 +147,7 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_AUTH_ROOT_PASSWORD:-admin123}
     command: server /data --console-address ":9001"
     networks:
-      - rootly-network
+      - rootly-private-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -169,9 +159,6 @@ services:
     image: minio/minio:latest
     container_name: stg-user-plant-management
     restart: unless-stopped
-    ports:
-      - "${MINIO_USER_PLANT_PORT:-9004}:9000"
-      - "${MINIO_USER_PLANT_CONSOLE_PORT:-9005}:9001"
     volumes:
       - minio_user_plant_data:/data
     environment:
@@ -179,7 +166,7 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_USER_PLANT_ROOT_PASSWORD:-admin123}
     command: server /data --console-address ":9001"
     networks:
-      - rootly-network
+      - rootly-private-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -189,28 +176,75 @@ services:
   # ============================================================================
   # APPLICATION SERVICES
   # ============================================================================
+  reverse-proxy:
+    image: nginx:latest
+    container_name: reverse-proxy
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend-ssr
+      - api-gateway
+    networks:
+      - rootly-private-network
+
+  # Load Balancer para be-data-ingestion (componente separado, expuesto en red pública)
+  # Genera configuración dinámicamente basado en DATA_INGESTION_REPLICAS
+  load-balancer:
+    build:
+      context: ../rootly-load-balancer
+      dockerfile: Dockerfile
+    container_name: load-balancer
+    ports:
+      - "${LOAD_BALANCER_EXTERNAL_PORT:-8000}:80"
+    environment:
+      - DATA_INGESTION_REPLICAS=${DATA_INGESTION_REPLICAS:-1}
+    env_file:
+      - .env
+    depends_on:
+      - be-data-ingestion
+    networks:
+      - rootly-public-network
+      - rootly-private-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   be-data-ingestion:
     build:
       context: ../rootly-data-ingestion
       dockerfile: Dockerfile
-    container_name: be-data-ingestion
-    ports:
-      - "8005:8000"
     env_file:
       - .env
     depends_on:
       - queue-data-ingestion
+    expose:
+      - "8000"
     networks:
-      - rootly-network
+      - rootly-private-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      replicas: ${DATA_INGESTION_REPLICAS:-1}
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
   # Data Ingestion Backend (Go) - Handles data ingestion and storage
   be-data-processing:
     build:
       context: ../rootly-data-processing
       dockerfile: Dockerfile
     container_name: be-data-processing
-    ports:
-      - "8002:8000"
     env_file:
       - .env
     depends_on:
@@ -220,16 +254,14 @@ services:
         condition: service_healthy
       stg-data-processing:
         condition: service_healthy
-    networks:
-      - rootly-network
-    env_file:
-      - .env
     environment:
       - HOST_IP=${HOST_IP:-}
       - EXTERNAL_PORT=${DATA_MANAGEMENT_EXTERNAL_PORT:-8002}
-      - INFLUXDB_URL=http://db-data-management:8086
+      - INFLUXDB_URL=http://db-data-processing:8086
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - rootly-private-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -252,7 +284,7 @@ services:
       stg-data-processing:
         condition: service_healthy
     networks:
-      - rootly-network
+      - rootly-private-network
     env_file:
       - .env
     healthcheck:
@@ -269,8 +301,6 @@ services:
       dockerfile: Dockerfile
     container_name: api-gateway
     restart: unless-stopped
-    ports:
-      - "${API_GATEWAY_EXTERNAL_PORT:-8080}:8080"
     depends_on:
       be-authentication-and-roles:
         condition: service_started
@@ -281,7 +311,7 @@ services:
       be-analytics:
         condition: service_started
     networks:
-      - rootly-network
+      - rootly-private-network
     env_file:
       - .env
     environment:
@@ -301,15 +331,13 @@ services:
       dockerfile: Dockerfile
     container_name: be-authentication-and-roles
     restart: unless-stopped
-    ports:
-      - "${AUTH_EXTERNAL_PORT:-8001}:${SERVERS_INTERNAL_PORT:-8000}"
     depends_on:
       db-authentication-and-roles:
         condition: service_healthy
       stg-authentication-and-roles:
         condition: service_healthy
     networks:
-      - rootly-network
+      - rootly-private-network
     env_file:
       - .env
     environment:
@@ -334,15 +362,13 @@ services:
       dockerfile: Dockerfile
     container_name: be-user-plant-management
     restart: unless-stopped
-    ports:
-      - "${USER_PLANT_MANAGEMENT_EXTERNAL_PORT:-8003}:8000"
     depends_on:
       db-user-plant-management:
         condition: service_healthy
       stg-user-plant-management:
         condition: service_healthy
     networks:
-      - rootly-network
+      - rootly-private-network
     env_file:
       - .env
     environment:
@@ -364,20 +390,19 @@ services:
       dockerfile: Dockerfile
     container_name: frontend-ssr
     restart: unless-stopped
-    ports:
-      - "${FRONTEND_EXTERNAL_PORT:-3001}:3001"
     depends_on:
       api-gateway:
         condition: service_started
     networks:
-      - rootly-network
+      - rootly-private-network
     environment:
       - NODE_ENV=production
-      - API_GATEWAY_URL=http://api-gateway:8080
-      - NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080
-      - AUTH_URL=http://api-gateway:8080
-      - PLANTS_URL=http://api-gateway:8080
-      - ANALYTICS_URL=http://api-gateway:8080
+      - BASE_URL=http://reverse-proxy:80
+      - API_GATEWAY_URL=http://reverse-proxy:80
+      - NEXT_PUBLIC_API_GATEWAY_URL=http://reverse-proxy:80
+      - ENABLE_HTTPS=false
+      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
+      - PLANT_SERVICE_URL=http://be-user-plant-management:8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001"]
       interval: 30s
@@ -385,36 +410,20 @@ services:
       retries: 3
       start_period: 40s
 
-  # API Gateway (Go)
-  api-gateway:
+  rootly-waf:
     build:
-      context: ../rootly-apigateway
+      context: ../rootly-waf
       dockerfile: Dockerfile
-    container_name: api-gateway
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
+    container_name: rootly-waf
     depends_on:
-      - be-analytics
-      - be-authentication-and-roles
-      - be-data-management
-      - be-user-plant-management
+      - reverse-proxy
+    ports:
+      - "${ROOTLY_WAF_HTTP_PORT:-80}:80"
+      - "${ROOTLY_WAF_HTTPS_PORT:-443}:443"
     networks:
-      - rootly-network
-    env_file:
-      - .env
-    environment:
-      - CONFIG_FILE=/etc/rootly/config.yaml
-      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
-      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
-      - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8002
-      - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      - rootly-public-network
+      - rootly-private-network
+    restart: unless-stopped
 
 # ============================================================================
 # VOLUMES
@@ -439,6 +448,10 @@ volumes:
 # ============================================================================
 
 networks:
-  rootly-network:
+  rootly-public-network:
     driver: bridge
-    name: rootly-network
+    name: rootly-public-network
+  rootly-private-network:
+    driver: bridge
+    name: rootly-private-network
+    internal: true

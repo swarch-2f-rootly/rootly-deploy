@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # Auto-detect LAN IP and start Rootly services
-# Usage: ./start.sh [--stash]
+# Usage: ./start.sh [--stash] [--no-update]
 #   --stash: Stash local changes before updating repositories
+#   --no-update: Skip repository updates
 
 # Colors for output
 RED='\033[0;31m'
@@ -11,11 +12,23 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Check if --stash flag is provided
+# Parse flags
 STASH_CHANGES=false
-if [[ "$1" == "--stash" ]]; then
-    STASH_CHANGES=true
-fi
+SKIP_UPDATE=false
+
+for arg in "$@"; do
+    case $arg in
+        --stash)
+            STASH_CHANGES=true
+            ;;
+        --no-update)
+            SKIP_UPDATE=true
+            ;;
+        *)
+            echo -e "${YELLOW}Warning: Unknown flag '$arg' ignored${NC}"
+            ;;
+    esac
+done
 
 # Update all repositories to main branch
 update_repositories() {
@@ -29,8 +42,9 @@ update_repositories() {
         "rootly-analytics-backend"
         "rootly-apigateway"
         "rootly-authentication-and-roles-backend"
-        "rootly-data-management-backend"
-        "rootly-frontend"
+        "rootly-data-processing"
+        "rootly-data-ingestion"
+        "rootly-ssr-frontend"
         "rootly-user-plant-management-backend"
     )
     
@@ -119,7 +133,12 @@ copy_env_if_not_exists_frontend() {
 }
 
 # Main execution starts here
-update_repositories
+if [ "$SKIP_UPDATE" = false ]; then
+    update_repositories
+else
+    echo -e "${YELLOW}Skipping repository updates (--no-update flag provided)${NC}"
+    echo ""
+fi
 
 copy_env_if_not_exists
 copy_env_if_not_exists_frontend
@@ -136,7 +155,8 @@ fi
 
 echo "Host IP: $HOST_IP"
 echo "Services will be available at:"
-echo "  Data Management: http://$HOST_IP:8002"
+echo "  Data Ingestion: http://$HOST_IP:8005"
+echo "  Data Processing: http://$HOST_IP:8002"
 echo "  Analytics: http://$HOST_IP:8000"
 echo "  Authentication: http://$HOST_IP:8001"
 echo "  API Gateway: http://$HOST_IP:8080"
@@ -176,7 +196,8 @@ $COMPOSE_CMD ps
 
 echo ""
 echo "Health check URLs:"
-echo "  Data Management: http://$HOST_IP:8002/health"
+echo "  Data Ingestion: http://$HOST_IP:8005/health"
+echo "  Data Processing: http://$HOST_IP:8002/health"
 echo "  Analytics: http://$HOST_IP:8000/health"
 echo "  Authentication: http://$HOST_IP:8001/health"
 echo "  API Gateway: http://$HOST_IP:8080/health"
