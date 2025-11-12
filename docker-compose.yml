@@ -454,12 +454,17 @@ services:
         condition: service_started
     networks:
       - rootly-private-network
+      - rootly-public-network
     expose:
       - "3001"
     environment:
       - NODE_ENV=production
       - BASE_URL=http://reverse-proxy:80
+      - API_GATEWAY_URL=http://reverse-proxy:80
+      - NEXT_PUBLIC_API_GATEWAY_URL=http://reverse-proxy:80
       - ENABLE_HTTPS=false
+      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
+      - PLANT_SERVICE_URL=http://be-user-plant-management:8000
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:3001 || exit 1"]
       interval: 30s
