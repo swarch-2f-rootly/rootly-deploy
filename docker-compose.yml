@@ -272,15 +272,37 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+  # Load Balancer para be-analytics (componente interno)
+  # Genera configuración dinámicamente basado en ANALYTICS_REPLICAS
+  load-balancer-analytics:
+    build:
+      context: ../rootly-load-balancer-analytics
+      dockerfile: Dockerfile
+    container_name: load-balancer-analytics
+    environment:
+      - ANALYTICS_REPLICAS=${ANALYTICS_REPLICAS:-1}
+    env_file:
+      - .env
+    depends_on:
+      - be-analytics
+    networks:
+      - rootly-private-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   # Analytics Backend (Python) - Provides analytics and insights
   be-analytics:
     build:
       context: ../rootly-analytics-backend
       dockerfile: Dockerfile
-    container_name: be-analytics
     restart: unless-stopped
-    ports:
-      - "${ANALYTICS_EXTERNAL_PORT:-8000}:${SERVERS_INTERNAL_PORT:-8000}"
+    expose:
+      - "8000"
     depends_on:
       db-data-processing:
         condition: service_healthy
@@ -288,6 +310,13 @@ services:
         condition: service_healthy
     networks:
       - rootly-private-network
+    deploy:
+      replicas: ${ANALYTICS_REPLICAS:-1}
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
     env_file:
       - .env
     healthcheck:
@@ -311,7 +340,7 @@ services:
         condition: service_started
       be-data-processing:
         condition: service_started
-      be-analytics:
+      load-balancer-analytics:
         condition: service_started
     networks:
       - rootly-private-network
@@ -325,7 +354,7 @@ services:
       - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
       - PLANT_MANAGEMENT_SERVICE_URL=http://be-user-plant-management:8000
       - DATA_MANAGEMENT_SERVICE_URL=http://be-data-management:8000
-      - ANALYTICS_SERVICE_URL=http://be-analytics:8000
+      - ANALYTICS_SERVICE_URL=http://load-balancer-analytics:80
 
   # Authentication Backend (Python) - Handles user authentication and management
   be-authentication-and-roles:
