@@ -174,7 +174,7 @@ Once started, the services will be available at:
   - Fallback HTTP: <http://localhost>
   - Rutas protegidas: `/`, `/api/`, `/graphql`
 
-- **Frontend SSR**: expuesto a través del WAF (`https://localhost`)
+- **Frontend SSR**: expuesto a través del WAF (`https://localhost`); el contenedor comparte la red pública con el WAF, pero no publica puertos propios
 
 - **API Gateway**: expuesto mediante el WAF (`https://localhost/graphql`)
   - Health (externo): `https://localhost/api/health` (proxied)
@@ -314,6 +314,68 @@ Persistent data is stored in named volumes:
 - `minio_auth_data` - MinIO auth object storage files
 - `postgres_user_plant_data` - PostgreSQL user plant management database files
 - `minio_user_plant_data` - MinIO user plant object storage files
+
+## WAF Load Test Automation
+
+El script `scripts/run-waf-loadtest.sh` automatiza las pruebas que simulan el ataque ddos al `rootly-waf`, captura logs relevantes y genera métricas resumidas.
+
+1. **Asegura la pila base**
+
+   ```bash
+   docker compose up -d
+   docker compose ps
+   ```
+
+   Comprueba que `reverse-proxy` y `rootly-waf` estén en estado `running`/`healthy`. Si `rootly-waf` entra en reinicios porque no encuentra `reverse-proxy`, levanta primero el proxy y luego reinicia el WAF:
+
+   ```bash
+   docker compose up -d reverse-proxy
+   docker compose restart rootly-waf
+   ```
+
+2. **Elige desde dónde ejecutar el script**
+
+   - **WSL / Linux / macOS**: sitúate en `rootly-deploy`.
+
+     ```bash
+     cd rootly-deploy
+     ```
+
+   - **WSL con Docker Desktop**: habilita la integración (Settings → Resources → WSL integration) y valida que `docker ps` funcione dentro de tu distro antes de continuar.
+
+3. **Lanza la prueba**
+
+   ```bash
+   docker pull williamyeh/wrk:latest
+   ./scripts/run-waf-loadtest.sh \
+     --endpoint /api/v1/plants \
+     --threads 4 \
+     --connections 40 \
+     --duration 30s \
+     --token-file ../token.txt
+     --skip-logs # opcional la cantidad de logs a veces es mucha
+   ```
+
+   - Copia automáticamente el certificado autofirmado del WAF y lo monta en un contenedor temporal de `wrk`.
+   - Ejecuta `wrk` con los parámetros especificados (puedes ajustar `--endpoint`, `--threads`, `--connections`, `--duration`, `--timeout` y encabezados).
+   - Extrae los últimos `tail-lines` (200 por defecto) de `access.log`, `error.log` y `modsecurity/audit.log`.
+   - Guarda `metadata.json`, `summary.json` y los logs recolectados en `loadtest-results/<timestamp>/`.
+
+4. **Revisa los artefactos**
+
+   `summary.json` consolida:
+   - Totales y ratio de respuestas reportados por `wrk`.
+   - Distribución de códigos HTTP registrados por Nginx.
+   - Conteo de reglas ModSecurity activadas (`ruleId`).
+
+   Los logs completos quedan disponibles para inspección manual en la misma carpeta.
+
+Opciones útiles:
+
+- `--log-only`: salta la ejecución de `wrk` y solo recolecta logs.
+- `--skip-logs`: ejecuta `wrk` pero omite la recolección de logs y la síntesis de métricas (útil para iteraciones rápidas).
+- `--network <nombre>`: fuerza una red distinta a `rootly-public-network` si tu topología lo requiere.
+- `--skip-cert-copy`: reutiliza un certificado ya exportado en `waf-ca.pem` cuando no quieras invocar `docker cp`.
 
 ## Testing
 
