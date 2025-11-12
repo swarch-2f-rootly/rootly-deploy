@@ -1,0 +1,14 @@
+Running 30s test @ https://rootly-waf/api/v1/plants
+  4 threads and 40 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   333.97ms  972.24ms   6.00s    90.78%
+    Req/Sec   510.15    209.03     1.25k    71.92%
+  Latency Distribution
+     50%   17.85ms
+     75%   37.95ms
+     90%  999.54ms
+     99%    4.75s 
+  54342 requests in 30.31s, 16.44MB read
+  Non-2xx or 3xx responses: 54083
+Requests/sec:   1792.68
+Transfer/sec:    555.29KB
