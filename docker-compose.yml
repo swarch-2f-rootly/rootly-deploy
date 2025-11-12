@@ -395,6 +395,7 @@ services:
         condition: service_started
     networks:
       - rootly-private-network
+      - rootly-public-network
     environment:
       - NODE_ENV=production
       - BASE_URL=http://reverse-proxy:80
