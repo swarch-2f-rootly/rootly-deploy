@@ -182,16 +182,25 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - frontend-ssr
-      - api-gateway
+      frontend-ssr:
+        condition: service_healthy
+      api-gateway:
+        condition: service_started
     networks:
       - rootly-private-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # Load Balancer para be-data-ingestion (componente separado, expuesto en red pública)
   # Genera configuración dinámicamente basado en DATA_INGESTION_REPLICAS
-  load-balancer:
+  load-balancer-ingestion:
     build:
-      context: ../rootly-load-balancer
+      context: ../rootly-load-balancer-ingestion
       dockerfile: Dockerfile
     container_name: load-balancer
     ports:
@@ -424,16 +433,14 @@ services:
         condition: service_started
     networks:
       - rootly-private-network
+    expose:
+      - "3001"
     environment:
       - NODE_ENV=production
       - BASE_URL=http://reverse-proxy:80
-      - API_GATEWAY_URL=http://reverse-proxy:80
-      - NEXT_PUBLIC_API_GATEWAY_URL=http://reverse-proxy:80
       - ENABLE_HTTPS=false
-      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
-      - PLANT_SERVICE_URL=http://be-user-plant-management:8000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001"]
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:3001 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -445,7 +452,8 @@ services:
       dockerfile: Dockerfile
     container_name: rootly-waf
     depends_on:
-      - reverse-proxy
+      reverse-proxy:
+        condition: service_healthy
     ports:
       - "${ROOTLY_WAF_HTTP_PORT:-80}:80"
       - "${ROOTLY_WAF_HTTPS_PORT:-443}:443"
@@ -453,6 +461,12 @@ services:
       - rootly-public-network
       - rootly-private-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-kf", "https://127.0.0.1:443/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 # ============================================================================
 # VOLUMES
