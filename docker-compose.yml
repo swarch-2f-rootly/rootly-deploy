@@ -179,15 +179,12 @@ services:
   reverse-proxy:
     image: nginx:latest
     container_name: reverse-proxy
-    ports:
-      - "${REVERSE_PROXY_EXTERNAL_PORT:-80}:80" 
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - frontend-ssr
       - api-gateway
     networks:
-      - rootly-public-network
       - rootly-private-network
 
   # Load Balancer para be-data-ingestion (componente separado, expuesto en red pública)
@@ -425,21 +422,37 @@ services:
     depends_on:
       api-gateway:
         condition: service_started
-    ports:
-      - "${FRONTEND_EXTERNAL_PORT:-3001}:3001"
     networks:
-      - rootly-public-network
+      - rootly-private-network
     environment:
       - NODE_ENV=production
       - BASE_URL=http://reverse-proxy:80
       - API_GATEWAY_URL=http://reverse-proxy:80
       - NEXT_PUBLIC_API_GATEWAY_URL=http://reverse-proxy:80
+      - ENABLE_HTTPS=false
+      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
+      - PLANT_SERVICE_URL=http://be-user-plant-management:8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  rootly-waf:
+    build:
+      context: ../rootly-waf
+      dockerfile: Dockerfile
+    container_name: rootly-waf
+    depends_on:
+      - reverse-proxy
+    ports:
+      - "${ROOTLY_WAF_HTTP_PORT:-80}:80"
+      - "${ROOTLY_WAF_HTTPS_PORT:-443}:443"
+    networks:
+      - rootly-public-network
+      - rootly-private-network
+    restart: unless-stopped
 
 # ============================================================================
 # VOLUMES
