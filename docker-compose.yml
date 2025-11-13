@@ -181,6 +181,8 @@ services:
     container_name: reverse-proxy
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs/reverse-proxy/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro
+      - ./certs/reverse-proxy/privkey.pem:/etc/nginx/certs/privkey.pem:ro
     depends_on:
       frontend-ssr:
         condition: service_healthy
@@ -190,7 +192,7 @@ services:
       - rootly-private-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:80/ || exit 1"]
+      test: ["CMD-SHELL", "curl -kfs https://127.0.0.1/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -198,29 +200,29 @@ services:
 
   # Load Balancer para be-data-ingestion (componente separado, expuesto en red pública)
   # Genera configuración dinámicamente basado en DATA_INGESTION_REPLICAS
-  load-balancer-ingestion:
-    build:
-      context: ../rootly-load-balancer-ingestion
-      dockerfile: Dockerfile
-    container_name: load-balancer
-    ports:
-      - "${LOAD_BALANCER_EXTERNAL_PORT:-8000}:80"
-    environment:
-      - DATA_INGESTION_REPLICAS=${DATA_INGESTION_REPLICAS:-1}
-    env_file:
-      - .env
-    depends_on:
-      - be-data-ingestion
-    networks:
-      - rootly-public-network
-      - rootly-private-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+  #load-balancer-ingestion:
+  #  build:
+  #    context: ../rootly-load-balancer-ingestion
+  #    dockerfile: Dockerfile
+  #  container_name: load-balancer
+  #  ports:
+  #    - "${LOAD_BALANCER_EXTERNAL_PORT:-8000}:80"
+  #  environment:
+  #    - DATA_INGESTION_REPLICAS=${DATA_INGESTION_REPLICAS:-1}
+  #  env_file:
+  #    - .env
+  #  depends_on:
+  #    - be-data-ingestion
+  #  networks:
+  #    - rootly-public-network
+  #    - rootly-private-network
+  #  restart: unless-stopped
+  #  healthcheck:
+  #    test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
+  #    interval: 30s
+  #    timeout: 10s
+  #    retries: 3
+  #    start_period: 10s
 
   be-data-ingestion:
     build:
@@ -280,26 +282,26 @@ services:
       start_period: 40s
   # Load Balancer para be-analytics (componente interno)
   # Genera configuración dinámicamente basado en ANALYTICS_REPLICAS
-  load-balancer-analytics:
-    build:
-      context: ../rootly-load-balancer-analytics
-      dockerfile: Dockerfile
-    container_name: load-balancer-analytics
-    environment:
-      - ANALYTICS_REPLICAS=${ANALYTICS_REPLICAS:-1}
-    env_file:
-      - .env
-    depends_on:
-      - be-analytics
-    networks:
-      - rootly-private-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+  #load-balancer-analytics:
+  #  build:
+  #    context: ../rootly-load-balancer-analytics
+  #    dockerfile: Dockerfile
+  #  container_name: load-balancer-analytics
+  #  environment:
+  #    - ANALYTICS_REPLICAS=${ANALYTICS_REPLICAS:-1}
+  #  env_file:
+  #    - .env
+  #  depends_on:
+  #    - be-analytics
+  #  networks:
+  #    - rootly-private-network
+  #  restart: unless-stopped
+  #  healthcheck:
+  #    test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
+  #    interval: 30s
+  #    timeout: 10s
+  #    retries: 3
+  #    start_period: 10s
 
   # Analytics Backend (Python) - Provides analytics and insights
   be-analytics:
@@ -346,8 +348,8 @@ services:
         condition: service_started
       be-data-processing:
         condition: service_started
-      load-balancer-analytics:
-        condition: service_started
+#      load-balancer-analytics:
+#        condition: service_started
     networks:
       - rootly-private-network
     env_file:
@@ -435,17 +437,26 @@ services:
       - rootly-private-network
       - rootly-public-network
     expose:
-      - "3001"
+      - "3443"
     environment:
       - NODE_ENV=production
-      - BASE_URL=http://reverse-proxy:80
-      - API_GATEWAY_URL=http://reverse-proxy:80
-      - NEXT_PUBLIC_API_GATEWAY_URL=http://reverse-proxy:80
-      - ENABLE_HTTPS=false
-      - AUTH_SERVICE_URL=http://be-authentication-and-roles:8000
-      - PLANT_SERVICE_URL=http://be-user-plant-management:8000
+      - PORT=3443
+      - BASE_URL=https://reverse-proxy
+      - API_GATEWAY_URL=http://api-gateway:8080
+      - NEXT_PUBLIC_API_GATEWAY_URL=/api
+      - AUTH_SERVICE_URL=http://api-gateway:8080
+      - ENABLE_HTTPS=true
+      - SSL_CERT_PATH=/app/certs/frontend.crt
+      - SSL_KEY_PATH=/app/certs/frontend.key
+      - NODE_EXTRA_CA_CERTS=/app/certs/reverse-proxy.crt
+      - AUTH_SERVICE_URL=http://api-gateway:8080
+      - PLANT_SERVICE_URL=http://api-gateway:8080
+    volumes:
+      - ./certs/frontend/frontend.crt:/app/certs/frontend.crt:ro
+      - ./certs/frontend/frontend.key:/app/certs/frontend.key:ro
+      - ./certs/reverse-proxy/fullchain.pem:/app/certs/reverse-proxy.crt:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:3001 || exit 1"]
+      test: ["CMD-SHELL", "wget --no-check-certificate --spider -q https://127.0.0.1:3443 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
