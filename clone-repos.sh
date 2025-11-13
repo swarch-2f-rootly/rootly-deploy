@@ -34,6 +34,10 @@ REPOS=(
     "rootly-ssr-frontend"
     "rootly-user-plant-management-backend"
     "rootly-deploy"
+    "rootly-load-balancer"
+    "rootly-waf"
+    "rootly-load-balancer-ingestion"
+    "rootly-data-balancer-analytics"
 )
 
 # Function to clone a repository if it doesn't exist
