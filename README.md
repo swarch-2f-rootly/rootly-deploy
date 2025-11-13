@@ -135,10 +135,18 @@ If you prefer to configure each service manually:
    cd ../rootly-deployment
    ```
 
-4. **Start all services**
+4. **Genera certificados de desarrollo (solo la primera vez)**
 
    ```bash
-   docker-compose up -d
+   ./scripts/generate-dev-certs.sh
+   ```
+
+   Esto crea certificados autofirmados para el `reverse-proxy` y `frontend-ssr`, permitiendo que toda la cadena hasta el frontend utilice HTTPS en entornos locales.
+
+5. **Start all services**
+
+   ```bash
+  docker-compose up -d
    ```
 
 5. **Check service health**
