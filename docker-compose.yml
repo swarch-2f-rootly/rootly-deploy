@@ -195,27 +195,6 @@ services:
   # ============================================================================
   # APPLICATION SERVICES
   # ============================================================================
-  reverse-proxy:
-    image: nginx:latest
-    container_name: reverse-proxy
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs/reverse-proxy/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro
-      - ./certs/reverse-proxy/privkey.pem:/etc/nginx/certs/privkey.pem:ro
-    depends_on:
-      frontend-ssr:
-        condition: service_healthy
-      api-gateway:
-        condition: service_started
-    networks:
-      - rootly-private-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -kfs https://127.0.0.1/ || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
 
   # Load Balancer para be-data-ingestion (componente separado, expuesto en red pública)
   # Genera configuración dinámicamente basado en DATA_INGESTION_REPLICAS
@@ -456,28 +435,18 @@ services:
         condition: service_started
     networks:
       - rootly-private-network
-      - rootly-public-network
     expose:
-      - "3443"
+      - "3001"
     environment:
       - NODE_ENV=production
-      - PORT=3443
-      - BASE_URL=https://reverse-proxy
+      - PORT=3001
+      - BASE_URL=https://rootly-waf
       - API_GATEWAY_URL=http://api-gateway:8080
       - NEXT_PUBLIC_API_GATEWAY_URL=/api
       - AUTH_SERVICE_URL=http://api-gateway:8080
-      - ENABLE_HTTPS=true
-      - SSL_CERT_PATH=/app/certs/frontend.crt
-      - SSL_KEY_PATH=/app/certs/frontend.key
-      - NODE_EXTRA_CA_CERTS=/app/certs/reverse-proxy.crt
-      - AUTH_SERVICE_URL=http://api-gateway:8080
       - PLANT_SERVICE_URL=http://api-gateway:8080
-    volumes:
-      - ./certs/frontend/frontend.crt:/app/certs/frontend.crt:ro
-      - ./certs/frontend/frontend.key:/app/certs/frontend.key:ro
-      - ./certs/reverse-proxy/fullchain.pem:/app/certs/reverse-proxy.crt:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-check-certificate --spider -q https://127.0.0.1:3443 || exit 1"]
+      test: ["CMD-SHELL", "wget --no-check-certificate --spider -q https://127.0.0.1:3001 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -489,8 +458,10 @@ services:
       dockerfile: Dockerfile
     container_name: rootly-waf
     depends_on:
-      reverse-proxy:
+      frontend-ssr:
         condition: service_healthy
+      api-gateway:
+        condition: service_started
     ports:
       - "${ROOTLY_WAF_HTTP_PORT:-80}:80"
       - "${ROOTLY_WAF_HTTPS_PORT:-443}:443"
