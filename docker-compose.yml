@@ -200,29 +200,29 @@ services:
 
   # Load Balancer para be-data-ingestion (componente separado, expuesto en red pública)
   # Genera configuración dinámicamente basado en DATA_INGESTION_REPLICAS
-  #load-balancer-ingestion:
-  #  build:
-  #    context: ../rootly-load-balancer-ingestion
-  #    dockerfile: Dockerfile
-  #  container_name: load-balancer
-  #  ports:
-  #    - "${LOAD_BALANCER_EXTERNAL_PORT:-8000}:80"
-  #  environment:
-  #    - DATA_INGESTION_REPLICAS=${DATA_INGESTION_REPLICAS:-1}
-  #  env_file:
-  #    - .env
-  #  depends_on:
-  #    - be-data-ingestion
-  #  networks:
-  #    - rootly-public-network
-  #    - rootly-private-network
-  #  restart: unless-stopped
-  #  healthcheck:
-  #    test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
-  #    interval: 30s
-  #    timeout: 10s
-  #    retries: 3
-  #    start_period: 10s
+  load-balancer-ingestion:
+    build:
+      context: ../rootly-load-balancer-ingestion
+      dockerfile: Dockerfile
+    container_name: load-balancer
+    ports:
+      - "${LOAD_BALANCER_EXTERNAL_PORT:-8000}:80"
+    environment:
+      - DATA_INGESTION_REPLICAS=${DATA_INGESTION_REPLICAS:-1}
+    env_file:
+      - .env
+    depends_on:
+      - be-data-ingestion
+    networks:
+      - rootly-public-network
+      - rootly-private-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   be-data-ingestion:
     build:
@@ -282,26 +282,26 @@ services:
       start_period: 40s
   # Load Balancer para be-analytics (componente interno)
   # Genera configuración dinámicamente basado en ANALYTICS_REPLICAS
-  #load-balancer-analytics:
-  #  build:
-  #    context: ../rootly-load-balancer-analytics
-  #    dockerfile: Dockerfile
-  #  container_name: load-balancer-analytics
-  #  environment:
-  #    - ANALYTICS_REPLICAS=${ANALYTICS_REPLICAS:-1}
-  #  env_file:
-  #    - .env
-  #  depends_on:
-  #    - be-analytics
-  #  networks:
-  #    - rootly-private-network
-  #  restart: unless-stopped
-  #  healthcheck:
-  #    test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
-  #    interval: 30s
-  #    timeout: 10s
-  #    retries: 3
-  #    start_period: 10s
+  load-balancer-analytics:
+    build:
+      context: ../rootly-load-balancer-analytics
+      dockerfile: Dockerfile
+    container_name: load-balancer-analytics
+    environment:
+      - ANALYTICS_REPLICAS=${ANALYTICS_REPLICAS:-1}
+    env_file:
+      - .env
+    depends_on:
+      - be-analytics
+    networks:
+      - rootly-private-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/lb-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Analytics Backend (Python) - Provides analytics and insights
   be-analytics:
@@ -348,8 +348,8 @@ services:
         condition: service_started
       be-data-processing:
         condition: service_started
-#      load-balancer-analytics:
-#        condition: service_started
+      load-balancer-analytics:
+        condition: service_started
     networks:
       - rootly-private-network
     env_file:
